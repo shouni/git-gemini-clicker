@@ -36,7 +36,7 @@ class GitClient:
 
     def __init__(self,
                  repo_url: str,
-                 repo_path: str,
+                 repo_path: str, # 👈 'local_path' から 'repo_path' に変更されている
                  ssh_key_path: Optional[str] = None,
                  skip_host_key_check: bool = False):
 
