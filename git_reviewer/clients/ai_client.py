@@ -5,7 +5,7 @@ from google import genai
 from google.genai.errors import APIError
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, InternalServerError
 from typing import Optional
-from google.genai.types import Content, Part, GenerationConfig # GenerationConfigは残しておく
+from google.genai.types import Content, Part
 
 # ロガー設定
 ai_client_logger = logging.getLogger(__name__)
@@ -76,8 +76,6 @@ class AIClient:
         プロンプトに基づいてGemini APIを呼び出し、堅牢なリトライ処理を実行します。
         """
         ai_client_logger.info(f"Calling Gemini API with model: {self.model_name}")
-
-        # GenerationConfigを辞書で用意
         config_dict = {
             "temperature": temperature,
             "max_output_tokens": max_output_tokens,
