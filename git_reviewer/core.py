@@ -29,7 +29,7 @@ class ReviewCore:
         self.skip_host_key_check = skip_host_key_check
 
         # AIClientの初期化
-        self.ai_client = AIClient(model_name=self.model_name, api_key=os.getenv("GEMINI_API_KEY"))
+        self.ai_client = AIClient(model_name=self.model_name)
 
         # GitClientの初期化とリポジトリの準備を実行
         self.git_client = GitClient(
