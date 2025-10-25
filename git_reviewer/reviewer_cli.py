@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Optional, Tuple
 import logging
 
-# --- コアロジックをインポート ---
+# --- Settingsとコアロジックをインポート ---
+from .settings import Settings # 👈 追加: Settingsクラスをインポート
 from .core import ReviewCore
 
 # CLIとしてのログ設定
@@ -13,11 +14,27 @@ from .core import ReviewCore
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- グローバルオプション定義 ---
+# 設定ファイルからデフォルト値を取得するためのラッパー関数
+def get_model_default():
+    return Settings.get("DEFAULT_GEMINI_MODEL") or "gemini-2.5-flash"
+
+def get_ssh_key_default():
+    return Settings.get("DEFAULT_SSH_KEY_PATH") or "~/.ssh/id_rsa"
+
 # --- グローバル設定 ---
 @click.group()
-@click.option('-m', '--model', default="gemini-2.5-flash", help='使用するGeminiモデル名。') # ショートカット -m
-@click.option('-k', '--ssh-key-path', default="~/.ssh/id_rsa", help='SSHプライベートキーへのパス。') # ショートカット -k
-@click.option('-s', '--skip-host-key-check', is_flag=True, help='SSHホストキーのチェックをスキップします。') # ショートカット -s
+@click.option(
+    '-m', '--model',
+    default=get_model_default(), # 修正: Settingsからデフォルト値を取得
+    help='使用するGeminiモデル名。'
+)
+@click.option(
+    '-k', '--ssh-key-path',
+    default=get_ssh_key_default(), # 修正: Settingsからデフォルト値を取得
+    help='SSHプライベートキーへのパス。'
+)
+@click.option('-s', '--skip-host-key-check', is_flag=True, help='SSHホストキーのチェックをスキップします。')
 @click.pass_context
 def cli(ctx, model, ssh_key_path, skip_host_key_check):
     """
@@ -38,14 +55,35 @@ def cli(ctx, model, ssh_key_path, skip_host_key_check):
 # --- 共通オプションデコレータ ---
 def common_options(f):
     """detailとreleaseコマンドで共通のオプションを定義するデコレータ"""
-    # git-clone-url
+    # git-clone-url (必須なので変更なし)
     f = click.option('-u', '--git-clone-url', required=True, type=str, help='リポジトリのクローンURL。')(f)
-    # feature-branch
+    # feature-branch (必須なので変更なし)
     f = click.option('-f', '--feature-branch', required=True, type=str, help='レビュー対象のフィーチャーブランチ名。')(f)
+
     # base-branch
-    f = click.option('-b', '--base-branch', default="main", help='比較対象のベースブランチ。')(f)
-    # local-path
+    # Settings.get("BASE_BRANCH")がconfig.pyにない場合、"main"がフォールバック
+    base_branch_default = Settings.get("BASE_BRANCH") or "main"
+    f = click.option('-b', '--base-branch', default=base_branch_default, help='比較対象のベースブランチ。')(f)
+
+    # local-path (デフォルトはNoneなので変更なし)
     f = click.option('--local-path', default=None, help='リポジトリをクローンするローカルパス。')(f)
+
+    # LLMパラメータ (temperature)
+    f = click.option(
+        '--temperature',
+        type=float,
+        default=float(Settings.get("DEFAULT_TEMPERATURE") or 0.2),
+        help='LLMの応答のランダム性 (0.0 - 1.0)。'
+    )(f)
+
+    # LLMパラメータ (max-tokens)
+    f = click.option(
+        '--max-tokens',
+        type=int,
+        default=int(Settings.get("DEFAULT_MAX_OUTPUT_TOKENS") or 4096),
+        help='LLMの最大出力トークン数。'
+    )(f)
+
     return f
 
 
@@ -64,19 +102,35 @@ def _print_info(command: str, **kwargs):
     logger.info("------------------------------------------")
 
 
-def _execute_review(ctx: dict, repo_url: str, local_path: str, base_branch: str, feature_branch: str, mode: str) -> Tuple[bool, str]:
+def _execute_review(ctx: dict, repo_url: str, local_path: str, base_branch: str, feature_branch: str, mode: str, temperature: float, max_tokens: int) -> Tuple[bool, str]:
     """
     ReviewCoreをインスタンス化し、レビューを実行する。
     成功/失敗と結果メッセージを返す。
     """
+    # config.pyからリトライ設定を取得 (core.pyやai_client.pyに渡すために)
+    max_retries = int(Settings.get("AI_MAX_RETRIES") or 3)
+    initial_delay = int(Settings.get("AI_INITIAL_DELAY_SECONDS") or 30)
+
     core = ReviewCore(
         repo_url=repo_url,
         local_path=local_path,
         ssh_key_path=ctx['SSH_KEY_PATH'],
         model_name=ctx['MODEL'],
-        skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK']
+        skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK'],
+
+        # 堅牢性設定をCoreに渡す
+        max_retries=max_retries,
+        initial_delay_seconds=initial_delay
     )
-    return core.run_review(base_branch, feature_branch, mode)
+
+    # temperatureとmax_tokensをrun_reviewに渡す
+    return core.run_review(
+        base_branch=base_branch,
+        feature_branch=feature_branch,
+        mode=mode,
+        temperature=temperature,
+        max_output_tokens=max_tokens
+    )
 
 
 def _handle_review_result(success: bool, result_message: str):
@@ -94,7 +148,7 @@ def _handle_review_result(success: bool, result_message: str):
 
 
 def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
-                        base_branch: str, local_path: Optional[str], mode: str) -> None:
+                        base_branch: str, local_path: Optional[str], mode: str, temperature: float, max_tokens: int) -> None:
     """
     Gitレビューのメインフローを調整するメソッド。（責務はフロー管理に集中）
     """
@@ -109,7 +163,9 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
         base_branch=base_branch,
         local_path=local_path,
         model_name=ctx['MODEL'],
-        ssh_key_path=ctx['SSH_KEY_PATH']
+        ssh_key_path=ctx['SSH_KEY_PATH'],
+        temperature=temperature,
+        max_tokens=max_tokens
     )
 
     try:
@@ -120,7 +176,9 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
             local_path=local_path,
             base_branch=base_branch,
             feature_branch=feature_branch,
-            mode=mode
+            mode=mode,
+            temperature=temperature, # 実行関数へ渡す
+            max_tokens=max_tokens    # 実行関数へ渡す
         )
 
         # 結果の出力と終了処理
@@ -135,22 +193,24 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
 @cli.command()
 @common_options # 👈 共通オプションを適用
 @click.pass_context
-def detail(ctx, git_clone_url, feature_branch, base_branch, local_path):
+def detail(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
     [詳細レビュー] リポジトリURLとフィーチャーブランチを指定し、コード品質に焦点を当てたAIレビューを実行します。
     """
-    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "detail")
+    # 新しく追加したLLMパラメータを _run_review_command に渡す
+    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "detail", temperature, max_tokens)
 
 
 # --- RELEASE コマンド ---
 @cli.command()
 @common_options # 👈 共通オプションを適用
 @click.pass_context
-def release(ctx, git_clone_url, feature_branch, base_branch, local_path):
+def release(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
     [リリースレビュー] リポジトリURLとフィーチャーブランチを指定し、本番リリース可否に焦点を当てたAIレビューを実行します。
     """
-    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "release")
+    # 新しく追加したLLMパラメータを _run_review_command に渡す
+    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "release", temperature, max_tokens)
 
 
 if __name__ == '__main__':
