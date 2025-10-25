@@ -6,7 +6,7 @@
 
 ## 🚀 概要 (About) - AIコードレビューCLI
 
-**Git Gemini Clicker** は、Go言語版の思想を受け継ぎ、**Google Gemini の強力なAI**を活用して、**ローカルGitリポジトリの差分（diff）に基づいたコードレビューを自動化**するコマンドラインツールです。
+**Git Gemini Clicker** は、Go言語版の思想を受け継ぎ、**Google Gemini の強力なAI**を活用して、**ローカルGitリポジトリの差分（diff）に基づいたコードレビューを自動化**するコマンドラインツールです。インストール後の実行コマンドは **`ggrc`** です。
 
 **堅牢なリトライ・遅延メカニズムを備えたAIクライアント**と、**`click` フレームワーク**で構築されており、APIの安定性に依存するAI処理の信頼性を高めています。レビュー結果を**標準出力**に出力することに特化しており、CI/CDパイプラインやカスタムスクリプトへの組み込みが容易です。
 
@@ -28,7 +28,7 @@
 | **言語** | **Python 3.9+** | ツールの開発言語。 |
 | **CLI フレームワーク** | **Click** | 関数をサブコマンド形式のCLIに堅牢に変換。 |
 | **AI モデル** | **google-genai SDK (Gemini API)** | **堅牢なリトライロジックと、`Content`/`Part`による構造化された入力**で、コード差分を分析し、レビューコメントを生成。 |
-| **Git 操作** | **GitPython** | リポジトリのクローン、ブランチ切り替え、差分取得を実行。 |
+| **Git 操作** | **Git コマンド (subprocess)** | ローカルGitリポジトリ操作（クローン、ブランチ切り替え、**3点比較による差分取得**）を直接実行。Go版の堅牢性を継承。 |
 | **パッケージ管理** | **pyproject.toml (setuptools)** | ビルドシステムと依存関係の標準的な定義。 |
 
 -----
@@ -47,7 +47,7 @@ source .venv/bin/activate
 # 依存ライブラリをインストール（pyproject.tomlを読み込む）
 # -e . : 編集可能モードでインストールし、CLIコマンド ggrc を有効化します
 pip install -e .
-```
+````
 
 ### 2\. 環境変数の設定 (必須)
 
@@ -81,7 +81,7 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 | **オプション** | `--base-branch` | **`-b`** | 差分比較の**基準**となるブランチ、タグ、またはコミット。 | ❌ | `main` (config.py) |
 | **オプション** | `--temperature` | **なし** | LLMの応答のランダム性 (0.0 - 1.0)。 | ❌ | `0.2` (config.py) |
 | **オプション** | `--max-tokens` | **なし** | LLMの最大出力トークン数。 | ❌ | **`20480`** (config.py) |
-| **グローバル** | `--ssh-key-path**` | **`-k`** | SSH認証のための秘密鍵パス。 | ❌ | `~/.ssh/id_rsa` (config.py) |
+| **グローバル** | `--ssh-key-path**` | **`-k`** | SSH認証のための秘密鍵パス。**（デフォルトは`~/.ssh/id_rsa`）** | ❌ | `~/.ssh/id_rsa` (config.py) |
 | **グローバル** | `--model` | **`-m`** | 使用する Gemini モデル名。 | ❌ | `gemini-2.5-flash` (config.py) |
 | **グローバル** | `--skip-host-key-check` | **`-s`** | SSHホストキーのチェックをスキップします。 | ❌ | `False` |
 
@@ -131,4 +131,3 @@ ggrc detail --help
 ### 📜 ライセンス (License)
 
 このプロジェクトは [MIT License](https://opensource.org/licenses/MIT) の下で公開されています。
-
