@@ -2,6 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/Python-3.8+-blue?logo=python)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/shouni/git-gemini-clicker)](https://github.com/shouni/git-gemini-clicker/tags)
 
 ## 🚀 概要 (About) - AIコードレビューCLI
 
