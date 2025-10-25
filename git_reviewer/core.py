@@ -6,8 +6,8 @@ from pathlib import Path
 from importlib.resources import files
 
 # 依存モジュールをインポート
-from .git_client import GitClient, GitClientError, BranchNotFoundError
-from .ai_client import AIClient, AICallError
+from .clients.git_client import GitClient, GitClientError, BranchNotFoundError
+from .clients.ai_client import AIClient, AICallError
 
 # ロガー設定
 core_logger = logging.getLogger(__name__)

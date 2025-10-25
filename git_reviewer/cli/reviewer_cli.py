@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Optional, Tuple
 import logging
 
-# --- Settingsとコアロジックをインポート ---
-from .settings import Settings # 👈 追加: Settingsクラスをインポート
-from .core import ReviewCore
+from ..settings import Settings
+from ..core import ReviewCore
 
 # CLIとしてのログ設定
 # INFOレベルでログを出力

@@ -34,7 +34,7 @@ dependencies = [
 
 [project.scripts]
 # CLIツールのエントリポイントを定義
-ggrc = "git_reviewer.reviewer_cli:cli"
+ggrc = "git_reviewer.cli.reviewer_cli:cli"
 
 # --- 開発用のツール設定（任意だが推奨） ---
 [tool.pytest]
