@@ -19,6 +19,10 @@ class RateLimitExceeded(AICallError):
     """レートリミットを超過した際のエラー。"""
     pass
 
+class MaxRetriesExceededError(AICallError):
+    """最大リトライ回数を超過した際のエラー。"""
+    pass
+
 class AIClient:
     """
     Gemini APIとの通信を管理し、リトライロジックを実装するクライアント。
@@ -101,4 +105,5 @@ class AIClient:
 
             elif is_retryable and attempt == self.MAX_RETRIES - 1:
                 # 最終リトライ失敗
-                raise RateLimitExceeded(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。") from e
+                # 汎用的な MaxRetriesExceededError をスローするように修正
+                raise MaxRetriesExceededError(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。") from e
