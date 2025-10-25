@@ -19,7 +19,7 @@ class ReviewCore:
     Git操作とAIレビューロジックを統合するコアクラス。
     """
     # 許可されたプロンプトモードのホワイトリスト
-    _ALLOWED_PROMPT_MODES = {"detail", "release"} # 👈 実際のファイル構成に合わせて調整してください
+    _ALLOWED_PROMPT_MODES = {"detail", "release"}
 
     def __init__(self,
                  repo_url: str,
@@ -63,7 +63,6 @@ class ReviewCore:
         prompt_filename = f"prompt_{mode}.md"
 
         try:
-            # 🚨 修正: importlib.resources.files を使用してリソースパスを構築
             # 'git_reviewer.prompts' はパッケージ名.サブディレクトリ名
             prompt_path = files('git_reviewer.prompts') / prompt_filename
         except Exception as e:
