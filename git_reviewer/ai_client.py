@@ -26,7 +26,7 @@ class AIClient:
     def __init__(self, model_name: str, api_key: Optional[str] = None):
         self.model_name = model_name
         self.MAX_RETRIES = 3  # Go版と同様の堅牢な設定
-        self.INITIAL_DELAY = 60 # 初期遅延時間（秒）
+        self.INITIAL_DELAY = 30 # 初期遅延時間（秒）
 
         if api_key is None:
             # 環境変数から取得を試みる
