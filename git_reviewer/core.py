@@ -2,9 +2,10 @@ import logging
 import os
 import shutil
 from typing import Tuple, Optional
+from pathlib import Path
+from importlib.resources import files
 
 # 依存モジュールをインポート
-# GitCommandError は GitClient の中で使われているので、ここではインポート不要
 from .git_client import GitClient, GitClientError, BranchNotFoundError
 from .ai_client import AIClient, AICallError
 
@@ -17,22 +18,24 @@ class ReviewCore:
     """
     Git操作とAIレビューロジックを統合するコアクラス。
     """
+    # 許可されたプロンプトモードのホワイトリスト
+    _ALLOWED_PROMPT_MODES = {"detail", "release"}
+
     def __init__(self,
                  repo_url: str,
-                 repo_path: str, # 👈 修正: local_path を repo_path に変更 (GitClient に合わせる)
+                 repo_path: str, # ローカルリポジトリパス
                  ssh_key_path: str,
                  model_name: str,
                  skip_host_key_check: bool,
                  max_retries: int,
                  initial_delay_seconds: int):
 
-        self.repo_path = repo_path # 👈 インスタンス変数名も repo_path に変更
+        self.repo_path = repo_path
 
         # Gitクライアントを初期化
-        # 修正: キーワード引数を local_path から repo_path に変更
         self.git_client = GitClient(
             repo_url=repo_url,
-            repo_path=repo_path, # 👈 修正: local_path だった引数を repo_path に変更
+            repo_path=repo_path,
             ssh_key_path=ssh_key_path,
             skip_host_key_check=skip_host_key_check
         )
@@ -46,6 +49,36 @@ class ReviewCore:
 
         core_logger.info("ReviewCore initialized.")
 
+    def _load_prompt_template(self, mode: str) -> str:
+        """
+        パッケージ内の prompts ディレクトリからプロンプトテンプレートファイルを読み込みます。
+
+        Args:
+            mode (str): 使用するプロンプトモード。必ず _ALLOWED_PROMPT_MODES のいずれかであること。
+        """
+        # 以前の修正: modeのバリデーションを追加
+        if mode not in self._ALLOWED_PROMPT_MODES:
+            raise ValueError(f"Invalid prompt mode: '{mode}'. Allowed modes are: {', '.join(self._ALLOWED_PROMPT_MODES)}")
+
+        prompt_filename = f"prompt_{mode}.md"
+
+        try:
+            # 'git_reviewer.prompts' はパッケージ名.サブディレクトリ名
+            prompt_path = files('git_reviewer.prompts') / prompt_filename
+        except Exception as e:
+            # パッケージが正しくインポートできないなどの予期せぬエラー
+            core_logger.error(f"Failed to locate prompt resource: {e}")
+            raise FileNotFoundError(f"Failed to locate prompt resource for mode '{mode}'.") from e
+
+        core_logger.info(f"Attempting to load prompt from: {prompt_path}")
+
+        if not prompt_path.exists():
+            raise FileNotFoundError(f"Prompt file not found for mode '{mode}': {prompt_path}")
+
+        # files().read_text() を使用して直接ファイルの内容を読み込む
+        # 以前のロジック: with open(prompt_path, 'r', encoding='utf-8') as f: return f.read()
+        return prompt_path.read_text(encoding='utf-8')
+
     def run_review(self,
                    base_branch: str,
                    feature_branch: str,
@@ -58,15 +91,10 @@ class ReviewCore:
         try:
             # 1. Gitリポジトリのセットアップ（クローン/フェッチ）
             core_logger.info("フェーズ1: Gitリポジトリのセットアップ開始...")
-
-            # GitClientの run_setup() は clone_or_open() に置き換わったため、メソッド名を修正
             self.git_client.clone_or_open()
 
             # 2. 差分取得
-            # 新しい GitClient は get_diff の中で fetch を含むため、ブランチ切り替えは不要
             core_logger.info("フェーズ2: 差分取得を開始...")
-
-            # 差分を取得（3点比較による pure diff）
             diff_content = self.git_client.get_diff(base_branch, feature_branch)
 
             if not diff_content.strip():
@@ -75,8 +103,21 @@ class ReviewCore:
             core_logger.info(f"差分取得完了: {len(diff_content.splitlines())}行の変更を検出。")
 
             # 3. プロンプトの準備
-            prompt_template = "あなたはコードレビュアです。以下の差分を分析し、{}観点からレビューしてください。\n\nDIFF:\n{}"
-            prompt_content = prompt_template.format(mode, diff_content)
+            try:
+                prompt_template = self._load_prompt_template(mode)
+
+                # 以前の修正: テンプレートの契約（プレースホルダー名）をコメントで明示
+                # NOTE: プロンプトテンプレートファイルは '{diff_content}' というプレースホルダーを持つことを想定しています。
+                prompt_content = prompt_template.format(diff_content=diff_content)
+
+            except FileNotFoundError as e:
+                core_logger.error(f"プロンプトファイルのロードエラー: {e}")
+                return False, f"Error: {e}"
+            except ValueError as e:
+                # 不正なプロンプトモードエラーをキャッチ
+                core_logger.error(f"不正なプロンプトモードエラー: {e}")
+                return False, f"Error: {e}"
+
 
             # 4. AIレビューの実行
             core_logger.info(f"フェーズ3: AIレビュー呼び出し開始 (モード: {mode})...")
@@ -94,6 +135,5 @@ class ReviewCore:
             return False, str(e)
 
         finally:
-            # CLI側で渡された local_path は一時ディレクトリなので、ここでは特にクリーンアップは行いません
-            # （一時ディレクトリの管理は _run_review_command の外で行う方が堅牢なため）
+            # クリーンアップは外側で行う
             pass

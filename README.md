@@ -47,7 +47,7 @@ source .venv/bin/activate
 # 依存ライブラリをインストール（pyproject.tomlを読み込む）
 # -e . : 編集可能モードでインストールし、CLIコマンド ggrc を有効化します
 pip install -e .
-````
+```
 
 ### 2\. 環境変数の設定 (必須)
 
