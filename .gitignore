@@ -5,7 +5,6 @@
 # 仮想環境ディレクトリ (よく使われる名前)
 .venv
 venv
-.env
 env
 /venv/
 /env/
