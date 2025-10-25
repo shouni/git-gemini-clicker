@@ -9,7 +9,7 @@ import os
 DEFAULT_BASE_BRANCH: str = "main"
 
 # SSH認証キーのデフォルトパス (os.path.expanduser を使用してホームディレクトリを展開)
-DEFAULT_SSH_KEY_PATH: str = os.path.expanduser("~/.ssh/id_rsa")
+# DEFAULT_SSH_KEY_PATH: str = os.path.expanduser("~/.ssh/id_rsa")
 
 
 # --- AI/LLM 設定 ---
