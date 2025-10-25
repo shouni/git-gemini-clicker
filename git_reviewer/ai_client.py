@@ -95,3 +95,28 @@ class AIClient:
 
             except ResourceExhausted as e:
                 ai_client_logger.warning(f"Rate limit exceeded (Attempt {attempt + 1}/{self.MAX_RETRIES}).")
+                is_retryable = True
+            except (ServiceUnavailable, InternalServerError) as e:
+                ai_client_logger.warning(f"Server error (Attempt {attempt + 1}/{self.MAX_RETRIES}): {e}")
+                is_retryable = True
+            except APIError as e:
+                if e.code is not None and e.code >= 500:
+                    ai_client_logger.warning(f"Server error {e.code} (Attempt {attempt + 1}/{self.MAX_RETRIES}).")
+                    is_retryable = True
+                else:
+                    ai_client_logger.error(f"Non-retryable API Error: {e}")
+                    raise AICallError(f"Gemini APIクライアントエラー: {e}") from e
+
+            except Exception as e:
+                ai_client_logger.exception("Unexpected error during AI API call.")
+                raise AICallError(f"AI呼び出し中に予期せぬエラーが発生しました: {e}") from e
+
+            # リトライロジック
+            if is_retryable and attempt < self.MAX_RETRIES - 1:
+                delay = self.INITIAL_DELAY * (2 ** attempt)
+                ai_client_logger.info(f"Retrying in {delay:.2f} seconds...")
+                time.sleep(delay)
+
+            elif is_retryable and attempt == self.MAX_RETRIES - 1:
+                # 最終リトライ失敗
+                raise MaxRetriesExceededError(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。") from e
