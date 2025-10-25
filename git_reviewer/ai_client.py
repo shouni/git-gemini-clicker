@@ -5,6 +5,8 @@ from google import genai
 from google.genai.errors import APIError
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, InternalServerError
 from typing import Optional
+# ContentとPartオブジェクトを使用するためにインポート
+from google.genai.types import Content, Part
 
 # ロガー設定
 ai_client_logger = logging.getLogger(__name__)
@@ -53,6 +55,15 @@ class AIClient:
         """
         ai_client_logger.info(f"Calling Gemini API with model: {self.model_name}")
 
+        # Contentオブジェクトを作成し、role="user"を明示
+        # 修正: Part(text=...) の形式でテキストコンテンツをPartオブジェクトとしてラップ
+        contents_object = [
+            Content(
+                role="user",
+                parts=[Part(text=prompt_content)]
+            )
+        ]
+
         for attempt in range(self.MAX_RETRIES):
             # ループの各イテレーションでリトライ可能フラグを初期化
             is_retryable = False
@@ -61,7 +72,7 @@ class AIClient:
                 # API呼び出しの実行
                 response = self.client.models.generate_content(
                     model=self.model_name,
-                    contents=[prompt_content]
+                    contents=contents_object
                 )
 
                 # 応答が空でないかチェック (コンテンツフィルタリングやサイレント失敗の可能性に対応)
@@ -105,5 +116,4 @@ class AIClient:
 
             elif is_retryable and attempt == self.MAX_RETRIES - 1:
                 # 最終リトライ失敗
-                # 汎用的な MaxRetriesExceededError をスローするように修正
                 raise MaxRetriesExceededError(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。") from e
