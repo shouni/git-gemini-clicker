@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 from typing import Tuple, Optional
+from pathlib import Path
 
 # 依存モジュールをインポート
 # GitCommandError は GitClient の中で使われているので、ここではインポート不要
@@ -45,6 +46,25 @@ class ReviewCore:
         )
 
         core_logger.info("ReviewCore initialized.")
+
+    def _load_prompt_template(self, mode: str) -> str:
+        """
+        パッケージ内の prompts ディレクトリからプロンプトテンプレートファイルを読み込みます。
+        """
+        # core.py があるディレクトリ (git_reviewer) から prompts ディレクトリへの相対パスを使用
+        current_dir = Path(__file__).parent # git_reviewer ディレクトリを指す
+        prompt_dir = current_dir / "prompts"
+
+        prompt_filename = f"prompt_{mode}.md" # 例: prompt_detail.md
+        prompt_path = prompt_dir / prompt_filename
+
+        core_logger.info(f"Attempting to load prompt from: {prompt_path.resolve()}")
+
+        if not prompt_path.exists():
+            raise FileNotFoundError(f"Prompt file not found for mode '{mode}': {prompt_path.resolve()}")
+
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            return f.read()
 
     def run_review(self,
                    base_branch: str,
