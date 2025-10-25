@@ -92,5 +92,5 @@ db.sqlite3
 # MY APP
 /var/tmp/
 *.iml
-config.py
+
 
