@@ -75,8 +75,12 @@ class ReviewCore:
             core_logger.info(f"差分取得完了: {len(diff_content.splitlines())}行の変更を検出。")
 
             # 3. プロンプトの準備
-            prompt_template = "あなたはコードレビュアです。以下の差分を分析し、{}観点からレビューしてください。\n\nDIFF:\n{}"
-            prompt_content = prompt_template.format(mode, diff_content)
+            try:
+                prompt_template = self._load_prompt_template(mode)
+                prompt_content = prompt_template.format(diff_content=diff_content)
+            except FileNotFoundError as e:
+                core_logger.error(f"プロンプトファイルのロードエラー: {e}")
+                return False, f"Error: {e}"
 
             # 4. AIレビューの実行
             core_logger.info(f"フェーズ3: AIレビュー呼び出し開始 (モード: {mode})...")
