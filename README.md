@@ -1,18 +1,18 @@
-# 🤖 Git Gemini Reviewer Fire
+# 🤖 Git Gemini Clicker
 
 [![Python Version](https://img.shields.io/badge/Python-3.8+-blue?logo=python)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🚀 概要 (About) - AIコードレビューCLI
 
-**`Git Gemini Reviewer Fire`** は、Go言語版の思想を受け継ぎ、**Google Gemini の強力なAI**を活用して、**ローカルGitリポジトリの差分（diff）に基づいたコードレビューを自動化**するコマンドラインツールです。
+**`Git Gemini Clicker`** は、Go言語版の思想を受け継ぎ、**Google Gemini の強力なAI**を活用して、**ローカルGitリポジトリの差分（diff）に基づいたコードレビューを自動化**するコマンドラインツールです。
 
-**Pythonの `click` フレームワーク**を使用し、レビュー結果を**標準出力**に出力することに特化しています。これにより、CI/CDパイプラインやカスタムスクリプトへの組み込みが容易です。
+**堅牢な引数解析と保守性**に優れた **`click` フレームワーク**で構築されています。レビュー結果を**標準出力**に出力することに特化しており、CI/CDパイプラインやカスタムスクリプトへの組み込みが容易です。
 
 ### 💡 主な特徴
 
 * **AI駆動のレビュー**: **`detail`**（詳細レビュー）と **`release`**（リリースレビュー）の2つの**サブコマンド**で、目的に応じたフィードバックを取得。
-* **堅牢な引数構造**: **`click`** に移行したことで、引数とオプションの検証が堅牢になり、混乱が解消されました。
+* **堅牢なオプション構造**: すべての必須項目を**オプション**（`--` または `-`）で渡す設計。`click` の採用により、引数検証の堅牢性が向上しました。
 * **Gitリポジトリ対応**: SSH認証（`--ssh-key-path`）をサポートし、プライベートリポジトリのクローンとレビューが可能です。
 * **プロンプトの外部管理**: レビューロジックとプロンプトテンプレート（`.md` ファイル）を分離し、カスタマイズの容易性を確保。
 
@@ -20,12 +20,12 @@
 
 ## ✨ 技術スタック (Technology Stack)
 
-| 要素 | 技術 / ライブラリ | 役割 | (変更点) |
-| :--- | :--- | :--- | :--- |
-| **言語** | **Python 3.9+** | ツールの開発言語。 | (バージョン調整) |
-| **CLI フレームワーク** | **Click** | 関数をサブコマンド形式のCLIに堅牢に変換。 | **(Python Fire から変更)** |
-| **AI モデル** | **google-genai SDK (Gemini API)** | コード差分を分析し、レビューコメントを生成。 | (変更なし) |
-| **Git 操作** | **GitPython** | リポジトリのクローン、ブランチ切り替え、差分取得を実行。 | (追記) |
+| 要素 | 技術 / ライブラリ | 役割 |
+| :--- | :--- | :--- |
+| **言語** | **Python 3.9+** | ツールの開発言語。 |
+| **CLI フレームワーク** | **Click** | 関数をサブコマンド形式のCLIに堅牢に変換。 |
+| **AI モデル** | **google-genai SDK (Gemini API)** | コード差分を分析し、レビューコメントを生成。 |
+| **Git 操作** | **GitPython** | リポジトリのクローン、ブランチ切り替え、差分取得を実行。 |
 
 -----
 
@@ -41,7 +41,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # 依存ライブラリをインストール
-# CLIフレームワークが click に変更されました
 pip install click google-genai google-api-core gitpython
 ```
 
@@ -57,9 +56,9 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
 -----
 
-## ⚙️ コマンドと引数
+## ⚙️ コマンドとオプション
 
-本ツールは、Go版と同様に**レビュー対象のGitリポジトリのURL**と**フィーチャーブランチ**を\*\*引数（Argument）\*\*として要求します。
+本ツールは、すべての必須項目を\*\*オプション（`--`またはショートカット `-`）\*\*で受け付けます。
 
 ### 🤖 レビューコマンドと目的
 
@@ -68,46 +67,48 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 | **`detail`** | `prompt_detail.md` | **詳細な技術レビュー**。コード品質、可読性、ベストプラクティスからの逸脱に焦点を当てる。 |
 | **`release`** | `prompt_release.md` | **本番リリース可否の判定**。致命的なバグ、セキュリティ脆弱性など、リリースをブロックする問題に限定して指摘する。 |
 
-### 🛠 グローバルオプションとコマンド引数
+### 🛠 グローバルオプションとコマンドオプション
 
-| タイプ | 引数名 | 説明 | 必須 | デフォルト値 |
-| :--- | :--- | :--- | :--- | :--- |
-| **引数** | `GIT_CLONE_URL` | **クローン対象のGitリポジトリURL（SSH推奨）** | ✅ | **なし** |
-| **引数** | `FEATURE_BRANCH` | **レビュー対象のブランチ、タグ、またはコミット**。 | ✅ | **なし** |
-| **オプション** | `--base-branch` | 差分比較の**基準**となるブランチ、タグ、またはコミット。 | ❌ | `main` |
-| **グローバル** | `--ssh-key-path` | SSH認証のための秘密鍵パス。 | ❌ | `~/.ssh/id_rsa` |
-| **グローバル** | `--model` | 使用する Gemini モデル名。 | ❌ | `gemini-2.5-flash` |
+| タイプ | ロングオプション | ショートカット | 説明 | 必須 | デフォルト値 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **オプション** | `--git-clone-url` | **`-u`** | **クローン対象のGitリポジトリURL（SSH推奨）** | ✅ | **なし** |
+| **オプション** | `--feature-branch` | **`-f`** | **レビュー対象のブランチ、タグ、またはコミット**。 | ✅ | **なし** |
+| **オプション** | `--base-branch` | **`-b`** | 差分比較の**基準**となるブランチ、タグ、またはコミット。 | ❌ | `main` |
+| **グローバル** | `--ssh-key-path` | **`-k`** | SSH認証のための秘密鍵パス。 | ❌ | `~/.ssh/id_rsa` |
+| **グローバル** | `--model` | **`-m`** | 使用する Gemini モデル名。 | ❌ | `gemini-2.5-flash` |
+| **グローバル** | `--skip-host-key-check` | **`-s`** | SSHホストキーのチェックをスキップします。 | ❌ | `False` |
 
 -----
 
 ## 🚀 使い方 (Usage) と実行例
 
-`click` への移行により、グローバルオプションはサブコマンドの**前に**、必須引数はサブコマンドの**直後に**記述する必要があります。
+`click` の設計に基づき、すべてのオプションはサブコマンド（`detail` または `release`）の前後に自由に配置できます。
 
 ### 1\. 詳細レビュー (`detail`)
 
-GitリポジトリURLとレビュー対象ブランチを引数として渡し、詳細レビューを行います。
+必須オプションをショートカットで渡し、詳細レビューを行います。
 
 ```bash
-# SSHキーパスはグローバルオプションとしてコマンド名の前に記述
+# ショートカットでの実行例
 python3 -m git_reviewer.reviewer_cli \
-    --ssh-key-path "~/.ssh/id_rsa" \
+    -k "~/.ssh/id_rsa" \
     detail \
-    "ssh://git@github.com/your/repo.git" \
-    "feature/new-feature" \
-    --base-branch "main"
+    -u "ssh://git@github.com/your/repo.git" \
+    -f "feature/new-feature" \
+    -b "main"
 ```
 
 ### 2\. リリースレビュー (`release`)
 
-`gemini-2.5-pro` モデルを指定し、特定のコミットでリリース判定モードを実行します。
+ロングオプションとショートカットを混ぜて使用し、特定のコミットでリリース判定モードを実行します。
 
 ```bash
+# ロングオプションとショートカットを組み合わせた実行例
 python3 -m git_reviewer.reviewer_cli \
     --model "gemini-2.5-pro" \
     release \
-    "ssh://git@github.com/your/repo.git" \
-    "4a5b6c7d8e9f" \
+    -u "ssh://git@github.com/your/repo.git" \
+    -f "4a5b6c7d8e9f" \
     --base-branch "main"
 ```
 
