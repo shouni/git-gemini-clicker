@@ -85,7 +85,8 @@ class ReviewCore:
             prompt_template = self._load_prompt_template(mode)
 
             # 3. テンプレート処理とAPI呼び出し (統合されたロジック)
-            final_prompt_content = prompt_template.replace("[CODE_DIFF]", diff_content)
+            # 修正箇所: .replace("[CODE_DIFF]", diff_content) から .format(diff_text=diff_content) へ変更
+            final_prompt_content = prompt_template.format(diff_text=diff_content)
             self.logger.info(f"Final prompt created (length: {len(final_prompt_content)} characters).") # ロギングを追加
 
             # 💡 直接 AIClient のメソッドを呼び出す

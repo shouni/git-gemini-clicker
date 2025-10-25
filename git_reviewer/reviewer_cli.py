@@ -6,7 +6,6 @@ from typing import Optional
 import logging
 
 # --- コアロジックをインポート ---
-# このファイルと同じパッケージ内の core.py を参照
 from git_reviewer.core import ReviewCore
 
 # CLIとしてのログ設定
@@ -38,7 +37,7 @@ def cli(ctx, model, ssh_key_path, skip_host_key_check):
 
 def _get_default_local_path(command: str) -> str:
     """一時ディレクトリ内のデフォルトパスを生成"""
-    # ユーザーのGoツール名に合わせてディレクトリ名を調整 (Goツール名: Action Perfect Get On Go)
+    # ユーザーのGoツール名に合わせてディレクトリ名を調整
     base_dir = Path(tempfile.gettempdir()) / "prototypus-ai-doc-go-repos"
     local_repo_name = f"tmp-{command}"
     return str(base_dir / local_repo_name)
@@ -61,7 +60,7 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
     if local_path is None:
         local_path = _get_default_local_path(mode)
 
-    # SyntaxError/AttributeError 対策のため、辞書アクセスで確実にキーを渡す
+    # ctx は辞書なので、直接キーでアクセス
     _print_info(
         mode,
         feature_branch=feature_branch,
@@ -76,7 +75,7 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
         core = ReviewCore(
             repo_url=git_clone_url,
             local_path=local_path,
-            # 修正: ctx は辞書なので、直接キーでアクセスします。
+            # ctx は辞書なので、直接キーでアクセス（AIの指摘が誤解している部分）
             ssh_key_path=ctx['SSH_KEY_PATH'],
             model_name=ctx['MODEL'],
             skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK']
@@ -108,7 +107,7 @@ def detail(ctx, git_clone_url, feature_branch, base_branch, local_path):
     """
     [詳細レビュー] GIT_CLONE_URLとFEATURE_BRANCHを指定し、コード品質に焦点を当てたAIレビューを実行します。
     """
-    # ctx.obj (グローバル設定の辞書) を _run_review_command に渡します。
+    # 修正済み: click.Context ではなく、辞書である ctx.obj を渡す
     _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "detail")
 
 
@@ -123,7 +122,7 @@ def release(ctx, git_clone_url, feature_branch, base_branch, local_path):
     """
     [リリースレビュー] GIT_CLONE_URLとFEATURE_BRANCHを指定し、本番リリース可否に焦点を当てたAIレビューを実行します。
     """
-    # ctx.obj (グローバル設定の辞書) を _run_review_command に渡します。
+    # 修正済み: click.Context ではなく、辞書である ctx.obj を渡す
     _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "release")
 
 
