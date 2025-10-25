@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 @click.pass_context
 def cli(ctx, model, ssh_key_path, skip_host_key_check):
     """
-    Python版 Git Gemini Reviewer CLI
+    Python版 Git Gemini Clicker CLI
     詳細レビュー (detail) と リリースレビュー (release) のためのコマンドを提供します。
     """
     # 実行コンテキストに共通設定を格納
@@ -35,9 +35,22 @@ def cli(ctx, model, ssh_key_path, skip_host_key_check):
     logger.info("----------------------")
 
 
+# --- 共通オプションデコレータ ---
+def common_options(f):
+    """detailとreleaseコマンドで共通のオプションを定義するデコレータ"""
+    # git-clone-url
+    f = click.option('-u', '--git-clone-url', required=True, type=str, help='リポジトリのクローンURL。')(f)
+    # feature-branch
+    f = click.option('-f', '--feature-branch', required=True, type=str, help='レビュー対象のフィーチャーブランチ名。')(f)
+    # base-branch
+    f = click.option('-b', '--base-branch', default="main", help='比較対象のベースブランチ。')(f)
+    # local-path
+    f = click.option('--local-path', default=None, help='リポジトリをクローンするローカルパス。')(f)
+    return f
+
+
 def _get_default_local_path(command: str) -> str:
     """一時ディレクトリ内のデフォルトパスを生成"""
-    # プロジェクト名に合わせてディレクトリ名を修正
     base_dir = Path(tempfile.gettempdir()) / "git-gemini-reviewer-fire-repos"
     local_repo_name = f"tmp-{command}"
     return str(base_dir / local_repo_name)
@@ -55,7 +68,6 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
                         base_branch: str, local_path: Optional[str], mode: str) -> None:
     """
     Gitレビューのコアロジックを実行するヘルパーメソッド。
-    ctx は click.group() で設定されたグローバルオプションの辞書 (ctx.obj) です。
     """
     if local_path is None:
         local_path = _get_default_local_path(mode)
@@ -75,7 +87,6 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
         core = ReviewCore(
             repo_url=git_clone_url,
             local_path=local_path,
-            # ctx は辞書なので、直接キーでアクセス
             ssh_key_path=ctx['SSH_KEY_PATH'],
             model_name=ctx['MODEL'],
             skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK']
@@ -98,10 +109,7 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
 
 # --- DETAIL コマンド ---
 @cli.command()
-@click.option('-u', '--git-clone-url', required=True, type=str, help='リポジトリのクローンURL。') # ショートカット -u
-@click.option('-f', '--feature-branch', required=True, type=str, help='レビュー対象のフィーチャーブランチ名。') # ショートカット -f
-@click.option('-b', '--base-branch', default="main", help='比較対象のベースブランチ。') # ショートカット -b
-@click.option('--local-path', default=None, help='リポジトリをクローンするローカルパス。')
+@common_options # 👈 共通オプションを適用
 @click.pass_context
 def detail(ctx, git_clone_url, feature_branch, base_branch, local_path):
     """
@@ -112,10 +120,7 @@ def detail(ctx, git_clone_url, feature_branch, base_branch, local_path):
 
 # --- RELEASE コマンド ---
 @cli.command()
-@click.option('-u', '--git-clone-url', required=True, type=str, help='リポジトリのクローンURL。') # ショートカット -u
-@click.option('-f', '--feature-branch', required=True, type=str, help='レビュー対象のフィーチャーブランチ名。') # ショートカット -f
-@click.option('-b', '--base-branch', default="main", help='比較対象のベースブランチ。') # ショートカット -b
-@click.option('--local-path', default=None, help='リポジトリをクローンするローカルパス。')
+@common_options # 👈 共通オプションを適用
 @click.pass_context
 def release(ctx, git_clone_url, feature_branch, base_branch, local_path):
     """
