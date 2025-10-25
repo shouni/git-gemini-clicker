@@ -2,7 +2,7 @@ import click
 import sys
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 import logging
 
 # --- コアロジックをインポート ---
@@ -64,10 +64,39 @@ def _print_info(command: str, **kwargs):
     logger.info("------------------------------------------")
 
 
+def _execute_review(ctx: dict, repo_url: str, local_path: str, base_branch: str, feature_branch: str, mode: str) -> Tuple[bool, str]:
+    """
+    ReviewCoreをインスタンス化し、レビューを実行する。
+    成功/失敗と結果メッセージを返す。
+    """
+    core = ReviewCore(
+        repo_url=repo_url,
+        local_path=local_path,
+        ssh_key_path=ctx['SSH_KEY_PATH'],
+        model_name=ctx['MODEL'],
+        skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK']
+    )
+    return core.run_review(base_branch, feature_branch, mode)
+
+
+def _handle_review_result(success: bool, result_message: str):
+    """
+    レビュー結果に基づいて標準出力への表示と終了コードの処理を行う。（責務分離）
+    """
+    if success:
+        if result_message:
+            print(f"\n--- AIレビュー結果 ---\n{result_message}")
+        else:
+            print("レビュー処理が完了しました。（差分なしなど）")
+    else:
+        print(f"\n--- AIレビュー失敗 ---\n{result_message}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
                         base_branch: str, local_path: Optional[str], mode: str) -> None:
     """
-    Gitレビューのコアロジックを実行するヘルパーメソッド。
+    Gitレビューのメインフローを調整するメソッド。（責務はフロー管理に集中）
     """
     if local_path is None:
         local_path = _get_default_local_path(mode)
@@ -84,23 +113,18 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
     )
 
     try:
-        core = ReviewCore(
+        # レビューを実行
+        success, result_message = _execute_review(
+            ctx=ctx,
             repo_url=git_clone_url,
             local_path=local_path,
-            ssh_key_path=ctx['SSH_KEY_PATH'],
-            model_name=ctx['MODEL'],
-            skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK']
+            base_branch=base_branch,
+            feature_branch=feature_branch,
+            mode=mode
         )
-        success, result_message = core.run_review(base_branch, feature_branch, mode)
 
-        if success:
-            if result_message:
-                print(f"\n--- AIレビュー結果 ---\n{result_message}")
-            else:
-                print("レビュー処理が完了しました。（差分なしなど）")
-        else:
-            print(f"\n--- AIレビュー失敗 ---\n{result_message}", file=sys.stderr)
-            sys.exit(1)
+        # 結果の出力と終了処理
+        _handle_review_result(success, result_message)
 
     except Exception as e:
         logger.error(f"致命的なエラーが発生しました: {e}", exc_info=True)
