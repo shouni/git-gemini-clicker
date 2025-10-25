@@ -10,10 +10,6 @@ class Settings:
     """
     _config: Optional[Any] = None
 
-    PROMPT_DIR: Path = Path.cwd() / "prompts"
-    PROMPT_GENERIC_PATH: Path = PROMPT_DIR / "generic.md"
-    PROMPT_BACKLOG_PATH: Path = PROMPT_DIR / "backlog.md"
-
     @classmethod
     def _initialize_config(cls):
         """
