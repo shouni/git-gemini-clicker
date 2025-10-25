@@ -19,6 +19,10 @@ class RateLimitExceeded(AICallError):
     """レートリミットを超過した際のエラー。"""
     pass
 
+class MaxRetriesExceededError(AICallError):
+    """最大リトライ回数を超過した際のエラー。"""
+    pass
+
 class AIClient:
     """
     Gemini APIとの通信を管理し、リトライロジックを実装するクライアント。
@@ -26,7 +30,9 @@ class AIClient:
     """
     def __init__(self, model_name: str, api_key: Optional[str] = None):
         self.model_name = model_name
+        # Go版の設計に合わせて、最大リトライ回数と初期遅延を設定
         self.MAX_RETRIES = 3
+        # 初期遅延を30秒に設定
         self.INITIAL_DELAY = 30
 
         if api_key is None:
@@ -48,7 +54,7 @@ class AIClient:
         ai_client_logger.info(f"Calling Gemini API with model: {self.model_name}")
 
         for attempt in range(self.MAX_RETRIES):
-            # 修正: ループの各イテレーションでis_retryableを初期化する
+            # ループの各イテレーションでリトライ可能フラグを初期化
             is_retryable = False
 
             try:
@@ -58,39 +64,46 @@ class AIClient:
                     contents=[prompt_content]
                 )
 
-                # 改善: 応答が空でないかチェックする
+                # 応答が空でないかチェック (コンテンツフィルタリングやサイレント失敗の可能性に対応)
                 if not response.text.strip():
                     ai_client_logger.warning("Gemini API returned empty content. It might be filtered or failed silently.")
-                    # 空のレビューとして返すことで、CLIが空の結果を処理できるようにする
+                    # 空のレビューとして返す
                     return ""
 
-                    # 成功
+                # 成功
                 return response.text
 
             except ResourceExhausted as e:
+                # レートリミットエラー
                 ai_client_logger.warning(f"Rate limit exceeded (Attempt {attempt + 1}/{self.MAX_RETRIES}).")
                 is_retryable = True
             except (ServiceUnavailable, InternalServerError) as e:
+                # サーバーエラー (503, 500)
                 ai_client_logger.warning(f"Server error (Attempt {attempt + 1}/{self.MAX_RETRIES}): {e}")
                 is_retryable = True
             except APIError as e:
+                # その他のAPIエラー (特に5xx系)
                 if e.code is not None and e.code >= 500:
                     ai_client_logger.warning(f"Server error {e.code} (Attempt {attempt + 1}/{self.MAX_RETRIES}).")
                     is_retryable = True
                 else:
+                    # リトライ不可能なエラー (例: 4xx クライアントエラー)
                     ai_client_logger.error(f"Non-retryable API Error: {e}")
                     raise AICallError(f"Gemini APIクライアントエラー: {e}") from e
 
             except Exception as e:
-                ai_client_logger.error(f"Unexpected error during API call: {e}")
+                # 予期せぬエラー (トレースバック付きでログを出力)
+                ai_client_logger.exception("Unexpected error during AI API call.")
                 raise AICallError(f"AI呼び出し中に予期せぬエラーが発生しました: {e}") from e
 
             # リトライロジック
             if is_retryable and attempt < self.MAX_RETRIES - 1:
+                # 指数バックオフ
                 delay = self.INITIAL_DELAY * (2 ** attempt)
                 ai_client_logger.info(f"Retrying in {delay:.2f} seconds...")
                 time.sleep(delay)
 
             elif is_retryable and attempt == self.MAX_RETRIES - 1:
                 # 最終リトライ失敗
-                raise RateLimitExceeded(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。") from e
+                # 汎用的な MaxRetriesExceededError をスローするように修正
+                raise MaxRetriesExceededError(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。") from e
