@@ -7,11 +7,11 @@ build-backend = "setuptools.build_meta"
 [project]
 # プロジェクト名とバージョン情報
 name = "git-gemini-clicker"
-version = "0.1.0"
+version = "1.0.0"
 description = "AI-driven code review CLI utilizing Google Gemini and Git diffs."
 readme = "README.md"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}, # 必要に応じて修正してください
+    {name = "shouni"}, # 必要に応じて修正してください
 ]
 license = {file = "LICENSE"}
 requires-python = ">=3.9"
@@ -19,8 +19,6 @@ keywords = ["git", "gemini", "ai", "review", "cli", "click", "python"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -37,9 +35,7 @@ dependencies = [
 
 [project.scripts]
 # CLIツールのエントリポイントを定義
-# これにより、インストール後 'ggrc' コマンドで実行可能になる
 ggrc = "git_reviewer.reviewer_cli:cli"
-# 'git_reviewer' はパッケージ名, 'reviewer_cli' はモジュール名, 'cli' は click.group() 関数名
 
 # --- 開発用のツール設定（任意だが推奨） ---
 [tool.pytest]
