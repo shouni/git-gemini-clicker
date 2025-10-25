@@ -5,8 +5,8 @@ from google import genai
 from google.genai.errors import APIError
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, InternalServerError
 from typing import Optional
-# Contentオブジェクトを使用するためにインポートを追加
-from google.genai.types import Content
+# ContentとPartオブジェクトを使用するためにインポート
+from google.genai.types import Content, Part
 
 # ロガー設定
 ai_client_logger = logging.getLogger(__name__)
@@ -56,14 +56,20 @@ class AIClient:
         ai_client_logger.info(f"Calling Gemini API with model: {self.model_name}")
 
         # Contentオブジェクトを作成し、role="user"を明示
-        contents_object = [Content(role="user", parts=[prompt_content])]
+        # 修正: Part(text=...) の形式でテキストコンテンツをPartオブジェクトとしてラップ
+        contents_object = [
+            Content(
+                role="user",
+                parts=[Part(text=prompt_content)]
+            )
+        ]
 
         for attempt in range(self.MAX_RETRIES):
             # ループの各イテレーションでリトライ可能フラグを初期化
             is_retryable = False
 
             try:
-                # API呼び出しの実行: contents に Content オブジェクトを使用
+                # API呼び出しの実行
                 response = self.client.models.generate_content(
                     model=self.model_name,
                     contents=contents_object
