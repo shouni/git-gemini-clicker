@@ -37,11 +37,9 @@ def cli(ctx, model, ssh_key_path, skip_host_key_check):
 
 def _get_default_local_path(command: str) -> str:
     """一時ディレクトリ内のデフォルトパスを生成"""
-    # ユーザーのGoツール名に合わせてディレクトリ名を調整
-    base_dir = Path(tempfile.gettempdir()) / "prototypus-ai-doc-go-repos"
+    base_dir = Path(tempfile.gettempdir()) / "git-gemini-reviewer-repos"
     local_repo_name = f"tmp-{command}"
     return str(base_dir / local_repo_name)
-
 
 def _print_info(command: str, **kwargs):
     """引数情報を表示するダミー関数 (デバッグ用)"""
