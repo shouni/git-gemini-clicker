@@ -5,8 +5,7 @@ from google import genai
 from google.genai.errors import APIError
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, InternalServerError
 from typing import Optional
-# ContentとPartオブジェクトを使用するためにインポート
-from google.genai.types import Content, Part
+from google.genai.types import Content, Part, GenerationConfig # GenerationConfigは残しておく
 
 # ロガー設定
 ai_client_logger = logging.getLogger(__name__)
@@ -25,38 +24,66 @@ class MaxRetriesExceededError(AICallError):
     """最大リトライ回数を超過した際のエラー。"""
     pass
 
+# 安全性評価用のユーティリティ関数
+def _check_safety_filtering(response) -> Optional[str]:
+    """レスポンスがフィルタリングされたか確認し、理由を返す"""
+    if response and response.candidates:
+        candidate = response.candidates[0]
+        if candidate.finish_reason.name != 'STOP':
+            reason = candidate.finish_reason.name
+            if reason == 'SAFETY':
+                # 安全性フィルタリングの詳細を取得
+                safety_ratings = [
+                    f"{r.category.name}: {r.probability.name}"
+                    for r in candidate.safety_ratings
+                ]
+                return f"Safety Filtered. Reason: {', '.join(safety_ratings)}"
+
+            return f"Generation failed. Finish reason: {reason}"
+
+    return None
+
 class AIClient:
     """
     Gemini APIとの通信を管理し、リトライロジックを実装するクライアント。
     Go版の堅牢な設計（リトライ・遅延メカニズム）を再現します。
     """
-    def __init__(self, model_name: str, api_key: Optional[str] = None):
+    def __init__(self,
+                 model_name: str,
+                 api_key: Optional[str] = None,
+                 max_retries: int = 3,
+                 initial_delay_seconds: int = 30):
+
         self.model_name = model_name
-        # Go版の設計に合わせて、最大リトライ回数と初期遅延を設定
-        self.MAX_RETRIES = 3
-        # 初期遅延を30秒に設定
-        self.INITIAL_DELAY = 30
+        self.MAX_RETRIES = max_retries
+        self.INITIAL_DELAY = initial_delay_seconds
 
         if api_key is None:
-            # 環境変数から取得を試みる
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
                 ai_client_logger.error("GEMINI_API_KEYが設定されていません。")
                 raise AICallError("Gemini API Clientの初期化に失敗しました。環境変数 GEMINI_API_KEY を設定してください。")
 
-        # APIクライアントを初期化
         self.client = genai.Client(api_key=api_key)
         ai_client_logger.info("Gemini API Client initialized successfully.")
 
 
-    def generate_review(self, prompt_content: str) -> str:
+    def generate_review(self,
+                        prompt_content: str,
+                        temperature: float,
+                        max_output_tokens: int) -> str:
         """
         プロンプトに基づいてGemini APIを呼び出し、堅牢なリトライ処理を実行します。
         """
         ai_client_logger.info(f"Calling Gemini API with model: {self.model_name}")
 
-        # Contentオブジェクトを作成し、role="user"を明示
-        # 修正: Part(text=...) の形式でテキストコンテンツをPartオブジェクトとしてラップ
+        # GenerationConfigを辞書で用意
+        config_dict = {
+            "temperature": temperature,
+            "max_output_tokens": max_output_tokens,
+        }
+
+        # Contentオブジェクトを作成
         contents_object = [
             Content(
                 role="user",
@@ -65,55 +92,70 @@ class AIClient:
         ]
 
         for attempt in range(self.MAX_RETRIES):
-            # ループの各イテレーションでリトライ可能フラグを初期化
             is_retryable = False
 
             try:
-                # API呼び出しの実行
+                # API呼び出し
                 response = self.client.models.generate_content(
                     model=self.model_name,
-                    contents=contents_object
+                    contents=contents_object,
+                    config=config_dict
                 )
 
-                # 応答が空でないかチェック (コンテンツフィルタリングやサイレント失敗の可能性に対応)
-                if not response.text.strip():
-                    ai_client_logger.warning("Gemini API returned empty content. It might be filtered or failed silently.")
-                    # 空のレビューとして返す
-                    return ""
+                # 修正: response.text にアクセスする前に None チェックを行う
+                if response.text is None or not response.text.strip():
+                    filter_message = _check_safety_filtering(response)
+
+                    if filter_message:
+                        ai_client_logger.error(f"AI generation failed: {filter_message}")
+                        # フィルタリングはリトライしても無駄なので、AICallErrorとして再送出
+                        raise AICallError(f"AI出力がブロックされました: {filter_message}")
+
+                    # フィルタリング以外でテキストがNoneの場合 (リトライ対象)
+                    ai_client_logger.warning("Gemini API returned empty or None content. Retrying if possible.")
+                    is_retryable = True
+                    # 強制的に次のループへ
+                    if attempt < self.MAX_RETRIES - 1:
+                        raise Exception("Empty content received, triggering retry logic.")
+                    else:
+                        raise AICallError("AIが空の応答を返し続けました。")
 
                 # 成功
                 return response.text
 
             except ResourceExhausted as e:
-                # レートリミットエラー
                 ai_client_logger.warning(f"Rate limit exceeded (Attempt {attempt + 1}/{self.MAX_RETRIES}).")
                 is_retryable = True
             except (ServiceUnavailable, InternalServerError) as e:
-                # サーバーエラー (503, 500)
                 ai_client_logger.warning(f"Server error (Attempt {attempt + 1}/{self.MAX_RETRIES}): {e}")
                 is_retryable = True
             except APIError as e:
-                # その他のAPIエラー (特に5xx系)
                 if e.code is not None and e.code >= 500:
                     ai_client_logger.warning(f"Server error {e.code} (Attempt {attempt + 1}/{self.MAX_RETRIES}).")
                     is_retryable = True
                 else:
-                    # リトライ不可能なエラー (例: 4xx クライアントエラー)
                     ai_client_logger.error(f"Non-retryable API Error: {e}")
                     raise AICallError(f"Gemini APIクライアントエラー: {e}") from e
 
+            except AICallError as e:
+                # フィルタリングエラーや最終リトライでの空応答はここでキャッチし、再送出
+                raise e
+
             except Exception as e:
-                # 予期せぬエラー (トレースバック付きでログを出力)
-                ai_client_logger.exception("Unexpected error during AI API call.")
-                raise AICallError(f"AI呼び出し中に予期せぬエラーが発生しました: {e}") from e
+                # 予期せぬエラー (空応答トリガーのエラーも含む)
+                if not is_retryable:
+                    ai_client_logger.exception("Unexpected error during AI API call.")
+
+                # 空応答でリトライを試みる場合は、このブロックで is_retryable が True になっている
+                if not is_retryable:
+                    raise AICallError(f"AI呼び出し中に予期せぬエラーが発生しました: {e}") from e
+
 
             # リトライロジック
             if is_retryable and attempt < self.MAX_RETRIES - 1:
-                # 指数バックオフ
                 delay = self.INITIAL_DELAY * (2 ** attempt)
                 ai_client_logger.info(f"Retrying in {delay:.2f} seconds...")
                 time.sleep(delay)
 
             elif is_retryable and attempt == self.MAX_RETRIES - 1:
-                # 最終リトライ失敗
-                raise MaxRetriesExceededError(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。") from e
+                raise MaxRetriesExceededError(f"API呼び出しが最大リトライ回数 ({self.MAX_RETRIES}回) を超えて失敗しました。")

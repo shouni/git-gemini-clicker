@@ -1,114 +1,99 @@
 import logging
-import importlib.resources as pkg_resources
 import os
-from typing import Optional, Tuple
+import shutil
+from typing import Tuple, Optional
+
+# 依存モジュールをインポート
+# GitCommandError は GitClient の中で使われているので、ここではインポート不要
 from .git_client import GitClient, GitClientError, BranchNotFoundError
 from .ai_client import AIClient, AICallError
 
-# ロギング設定: ライブラリのデフォルトロガーを設定
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+# ロガー設定
+core_logger = logging.getLogger(__name__)
+core_logger.addHandler(logging.NullHandler())
 
+# --- ReviewCore Class ---
 class ReviewCore:
     """
-    Git操作、プロンプト処理、Gemini API呼び出しを統括するコアロジッククラス。
+    Git操作とAIレビューロジックを統合するコアクラス。
     """
-
     def __init__(self,
                  repo_url: str,
-                 local_path: str,
-                 ssh_key_path: Optional[str],
+                 repo_path: str, # 👈 修正: local_path を repo_path に変更 (GitClient に合わせる)
+                 ssh_key_path: str,
                  model_name: str,
-                 skip_host_key_check: bool = False):
+                 skip_host_key_check: bool,
+                 max_retries: int,
+                 initial_delay_seconds: int):
 
-        self.logger = logging.getLogger(__name__)
+        self.repo_path = repo_path # 👈 インスタンス変数名も repo_path に変更
 
-        self.repo_url = repo_url
-        self.local_path = local_path
-        self.model_name = model_name
-        self.skip_host_key_check = skip_host_key_check
-
-        # AIClientの初期化
-        self.ai_client = AIClient(model_name=self.model_name)
-
-        # GitClientの初期化とリポジトリの準備を実行
+        # Gitクライアントを初期化
+        # 修正: キーワード引数を local_path から repo_path に変更
         self.git_client = GitClient(
             repo_url=repo_url,
-            repo_path=local_path,
+            repo_path=repo_path, # 👈 修正: local_path だった引数を repo_path に変更
             ssh_key_path=ssh_key_path,
             skip_host_key_check=skip_host_key_check
         )
 
-        self.logger.info("ReviewCore initialized and Git repository state confirmed.")
+        # AIクライアントを初期化
+        self.ai_client = AIClient(
+            model_name=model_name,
+            max_retries=max_retries,
+            initial_delay_seconds=initial_delay_seconds
+        )
 
+        core_logger.info("ReviewCore initialized.")
 
-    # ----------------------------------------------
-    # 1. プロンプトファイルの読み込み
-    # ----------------------------------------------
-    def _load_prompt_template(self, mode: str) -> str:
+    def run_review(self,
+                   base_branch: str,
+                   feature_branch: str,
+                   mode: str,
+                   temperature: float,
+                   max_output_tokens: int) -> Tuple[bool, str]:
         """
-        指定されたモードに基づき、パッケージリソースからMarkdownプロンプトテンプレートを読み込みます。
+        メインのレビュー実行フロー。Git操作とAI呼び出しを順に行う。
         """
-        prompt_filename = f"prompt_{mode}.md"
-        prompt_package = "git_reviewer.prompts"
-
         try:
-            content = pkg_resources.files(prompt_package).joinpath(prompt_filename).read_text(encoding='utf-8')
-            self.logger.info(f"Loaded prompt template: {prompt_filename}")
-            return content
-        except FileNotFoundError as e:
-            raise FileNotFoundError(f"プロンプトファイル '{prompt_filename}' がパッケージリソース '{prompt_package}' 内に見つかりません。") from e
-        except Exception as e:
-            self.logger.error(f"プロンプトファイルの読み込み中に予期せぬエラー: {e}")
-            raise
+            # 1. Gitリポジトリのセットアップ（クローン/フェッチ）
+            core_logger.info("フェーズ1: Gitリポジトリのセットアップ開始...")
 
+            # GitClientの run_setup() は clone_or_open() に置き換わったため、メソッド名を修正
+            self.git_client.clone_or_open()
 
-    # ----------------------------------------------
-    # 🌟 メインのレビュー実行ロジック
-    # ----------------------------------------------
-    def run_review(self, base_branch: str, feature_branch: str, mode: str) -> Tuple[bool, str]:
-        """
-        AIレビューの全工程（差分取得、プロンプト適用、API呼び出し）を実行します。
+            # 2. 差分取得
+            # 新しい GitClient は get_diff の中で fetch を含むため、ブランチ切り替えは不要
+            core_logger.info("フェーズ2: 差分取得を開始...")
 
-        Note: _call_gemini_api メソッドは削除され、AIClientの呼び出しはここに統合されました。
-        """
-        self.logger.info(f"\n===== AI Review START: Mode={mode} =====")
-        try:
-            # 1. 差分の取得
+            # 差分を取得（3点比較による pure diff）
             diff_content = self.git_client.get_diff(base_branch, feature_branch)
 
             if not diff_content.strip():
-                self.logger.info("Info: 差分がありません。レビューをスキップしました。")
-                return True, ""
+                return True, "Success: 差分が見つからなかったため、レビューをスキップしました。"
 
-            # 2. プロンプトテンプレートのロード
-            prompt_template = self._load_prompt_template(mode)
+            core_logger.info(f"差分取得完了: {len(diff_content.splitlines())}行の変更を検出。")
 
-            # 3. テンプレート処理とAPI呼び出し (統合されたロジック)
-            # 修正箇所: .replace("[CODE_DIFF]", diff_content) から .format(diff_text=diff_content) へ変更
-            final_prompt_content = prompt_template.format(diff_text=diff_content)
-            self.logger.info(f"Final prompt created (length: {len(final_prompt_content)} characters).") # ロギングを追加
+            # 3. プロンプトの準備
+            prompt_template = "あなたはコードレビュアです。以下の差分を分析し、{}観点からレビューしてください。\n\nDIFF:\n{}"
+            prompt_content = prompt_template.format(mode, diff_content)
 
-            # 💡 直接 AIClient のメソッドを呼び出す
-            review_result = self.ai_client.generate_review(final_prompt_content)
-            self.logger.info("AI review generated successfully.")
+            # 4. AIレビューの実行
+            core_logger.info(f"フェーズ3: AIレビュー呼び出し開始 (モード: {mode})...")
+            review_result = self.ai_client.generate_review(
+                prompt_content=prompt_content,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens
+            )
 
+            core_logger.info("AIレビュー完了。")
             return True, review_result
 
-        except BranchNotFoundError as e:
-            self.logger.error(f"指定されたブランチが存在しません。{e}")
-            return False, f"Error: 指定されたブランチが存在しません。{e}"
-        except GitClientError as e:
-            self.logger.error(f"Git操作エラーが発生しました。詳細ログを確認してください。")
-            return False, f"Error: Git操作中に問題が発生しました。詳細ログを確認してください。"
-        except FileNotFoundError as e:
-            self.logger.error(f"プロンプトファイルが見つかりません。{e}")
-            return False, f"Error: プロンプトファイルが見つかりません。{e}"
-        except AICallError as e:
-            self.logger.error(f"Gemini API呼び出しエラー: {e}")
-            return False, f"Error: Gemini APIの呼び出し中に致命的なエラーが発生しました。{e}"
-        except Exception as e:
-            self.logger.error(f"予期せぬエラーが発生しました: {type(e).__name__}: {e}", exc_info=True)
-            return False, f"Error: 予期せぬエラーが発生しました。{type(e).__name__}: {e}"
+        except (BranchNotFoundError, GitClientError, AICallError, Exception) as e:
+            core_logger.error(f"レビュー処理中にエラーが発生しました: {e}")
+            return False, str(e)
+
         finally:
-            self.logger.info("===== AI Review END =====")
+            # CLI側で渡された local_path は一時ディレクトリなので、ここでは特にクリーンアップは行いません
+            # （一時ディレクトリの管理は _run_review_command の外で行う方が堅牢なため）
+            pass

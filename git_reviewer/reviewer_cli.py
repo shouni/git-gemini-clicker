@@ -113,7 +113,8 @@ def _execute_review(ctx: dict, repo_url: str, local_path: str, base_branch: str,
 
     core = ReviewCore(
         repo_url=repo_url,
-        local_path=local_path,
+        # 修正: local_path は CLI から取得した値だが、Core/GitClient の引数名に合わせて repo_path を使用
+        repo_path=local_path, # 👈 ここを local_path から repo_path に変更 (値は local_path のものを使用)
         ssh_key_path=ctx['SSH_KEY_PATH'],
         model_name=ctx['MODEL'],
         skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK'],
