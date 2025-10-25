@@ -1,0 +1,58 @@
+[build-system]
+# PEP 517/518 に準拠したビルドシステムを定義
+# setuptools を使用する場合の推奨設定
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# プロジェクト名とバージョン情報
+name = "git-gemini-clicker"
+version = "0.1.0"
+description = "AI-driven code review CLI utilizing Google Gemini and Git diffs."
+readme = "README.md"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}, # 必要に応じて修正してください
+]
+license = {file = "LICENSE"}
+requires-python = ">=3.9"
+keywords = ["git", "gemini", "ai", "review", "cli", "click", "python"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+]
+
+# pip install でインストールされる実行時依存関係
+dependencies = [
+    "click",
+    "google-genai",
+    "google-api-core",
+    "GitPython",
+]
+
+[project.scripts]
+# CLIツールのエントリポイントを定義
+# これにより、インストール後 'ggrc' コマンドで実行可能になる
+ggrc = "git_reviewer.reviewer_cli:cli"
+# 'git_reviewer' はパッケージ名, 'reviewer_cli' はモジュール名, 'cli' は click.group() 関数名
+
+# --- 開発用のツール設定（任意だが推奨） ---
+[tool.pytest]
+# pytest の設定
+testpaths = ["tests"]
+
+[tool.black]
+# Black (Python コードフォーマッタ) の設定
+line-length = 88
+target-version = ['py39']
+
+[tool.isort]
+# isort (import ソートツール) の設定
+profile = "black"
+multi_line_output = 3
+force_single_line = true

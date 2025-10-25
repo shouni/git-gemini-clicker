@@ -26,6 +26,7 @@
 | **CLI フレームワーク** | **Click** | 関数をサブコマンド形式のCLIに堅牢に変換。 |
 | **AI モデル** | **google-genai SDK (Gemini API)** | コード差分を分析し、レビューコメントを生成。 |
 | **Git 操作** | **GitPython** | リポジトリのクローン、ブランチ切り替え、差分取得を実行。 |
+| **パッケージ管理** | **pyproject.toml (setuptools)** | ビルドシステムと依存関係の標準的な定義。 |
 
 -----
 
@@ -33,15 +34,16 @@
 
 ### 1\. Python と依存関係のインストール
 
-Python 3.9以上が必要です。仮想環境での作業を強く推奨します。
+Python 3.9以上が必要です。**`pyproject.toml`** を使用して、編集可能モード（開発モード）でインストールすることを推奨します。
 
 ```bash
 # 仮想環境を作成・有効化
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 依存ライブラリをインストール
-pip install click google-genai google-api-core gitpython
+# 依存ライブラリをインストール（pyproject.tomlを読み込む）
+# -e . : 編集可能モードでインストールし、CLIコマンド ggrc を有効化します
+pip install -e .
 ```
 
 ### 2\. 環境変数の設定 (必須)
@@ -58,7 +60,7 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
 ## ⚙️ コマンドとオプション
 
-本ツールは、すべての必須項目を\*\*オプション（`--`またはショートカット `-`）\*\*で受け付けます。
+本ツールは、すべての必須項目を**オプション（`--`またはショートカット `-`）で受け付けます。インストール後、`ggrc`** コマンドで起動できます。
 
 ### 🤖 レビューコマンドと目的
 
@@ -82,7 +84,7 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
 ## 🚀 使い方 (Usage) と実行例
 
-`click` の設計に基づき、すべてのオプションはサブコマンド（`detail` または `release`）の前後に自由に配置できます。
+インストール後、新しいコマンド名 **`ggrc`** を使用します。
 
 ### 1\. 詳細レビュー (`detail`)
 
@@ -90,7 +92,7 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
 ```bash
 # ショートカットでの実行例
-python3 -m git_reviewer.reviewer_cli \
+ggrc \
     -k "~/.ssh/id_rsa" \
     detail \
     -u "ssh://git@github.com/your/repo.git" \
@@ -104,7 +106,7 @@ python3 -m git_reviewer.reviewer_cli \
 
 ```bash
 # ロングオプションとショートカットを組み合わせた実行例
-python3 -m git_reviewer.reviewer_cli \
+ggrc \
     --model "gemini-2.5-pro" \
     release \
     -u "ssh://git@github.com/your/repo.git" \
@@ -114,11 +116,9 @@ python3 -m git_reviewer.reviewer_cli \
 
 ### 3\. ヘルプの表示
 
-`click` の機能により、詳細なヘルプが自動で表示されます。
-
 ```bash
-python3 -m git_reviewer.reviewer_cli --help
-python3 -m git_reviewer.reviewer_cli detail --help
+ggrc --help
+ggrc detail --help
 ```
 
 -----
