@@ -1,23 +1,18 @@
-ご要望に基づき、`--feature-branch` が必須で、`--base-branch` のデフォルトが `main` であるというGo版の引数構造を完全に反映した **`git-gemini-reviewer-fire`** のREADMEを以下に作成します。
-
------
-
 # 🤖 Git Gemini Reviewer Fire
 
-[](https://www.python.org/)
-[](https://github.com/google/python-fire)
-[](https://ai.google.dev/gemini-api/docs/api-key)
-[](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/Python-3.8+-blue?logo=python)](https://www.python.org/)
+[![CLI Framework](https://img.shields.io/badge/CLI-python--fire-red?logo=pypi)](https://github.com/google/python-fire)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 🚀 概要 (About) - Pythonで実装するAIコードレビューCLI
+## 🚀 概要 (About) - AIコードレビューCLI
 
 **`Git Gemini Reviewer Fire`** は、Go言語版の思想を受け継ぎ、**Google Gemini の強力なAI**を活用して、**ローカルGitリポジトリの差分（diff）に基づいたコードレビューを自動化**するコマンドラインツールです。
 
-Pythonの\*\*`fire`**フレームワークを使用し、レビュー結果を**標準出力\*\*に出力することに特化しています。これにより、CI/CDパイプラインやカスタムスクリプトへの組み込みが容易です。
+Pythonの`fire`フレームワークを使用し、レビュー結果を**標準出力**に出力することに特化しています。これにより、CI/CDパイプラインやカスタムスクリプトへの組み込みが容易です。
 
 ### 💡 主な特徴
 
-* **AI駆動のレビュー**: **`detail`**（詳細レビュー）と\*\*`release`\*\*（リリースレビュー）の2つのコマンドで、目的に応じたフィードバックを取得。
+* **AI駆動のレビュー**: **`detail`**（詳細レビュー）と`release`（リリースレビュー）の2つのコマンドで、目的に応じたフィードバックを取得。
 * **Go版の引数構造**: レビュー対象ブランチの**明示的な指定**を要求するGo版の必須引数構造を再現。
 * **プロンプトの外部管理**: レビューロジックとプロンプトテンプレート（`.md` ファイル）を分離し、カスタマイズの容易性を確保。
 
