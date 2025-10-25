@@ -5,8 +5,8 @@ from google import genai
 from google.genai.errors import APIError
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, InternalServerError
 from typing import Optional
-# ContentとPartオブジェクトを使用するためにインポート
-from google.genai.types import Content, Part
+# Content, Part, GenerationConfigオブジェクトを使用するためにインポート
+from google.genai.types import Content, Part, GenerationConfig
 
 # ロガー設定
 ai_client_logger = logging.getLogger(__name__)
@@ -49,14 +49,18 @@ class AIClient:
         ai_client_logger.info("Gemini API Client initialized successfully.")
 
 
-    def generate_review(self, prompt_content: str) -> str:
+    def generate_review(self, prompt_content: str, temperature: float = 0.2, max_output_tokens: int = 4096) -> str:
         """
         プロンプトに基づいてGemini APIを呼び出し、堅牢なリトライ処理を実行します。
+
+        Args:
+            prompt_content: モデルに渡すプロンプト文字列。
+            temperature: 応答のランダム性を制御する温度 (0.0=決定論的, 1.0=創造的)。デフォルトは0.2 (コードレビュー向け)。
+            max_output_tokens: 生成される応答の最大トークン数。
         """
         ai_client_logger.info(f"Calling Gemini API with model: {self.model_name}")
 
         # Contentオブジェクトを作成し、role="user"を明示
-        # 修正: Part(text=...) の形式でテキストコンテンツをPartオブジェクトとしてラップ
         contents_object = [
             Content(
                 role="user",
@@ -64,21 +68,27 @@ class AIClient:
             )
         ]
 
+        # 応答設定 (精度とコストの制御)
+        generation_config = GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_output_tokens
+        )
+
         for attempt in range(self.MAX_RETRIES):
             # ループの各イテレーションでリトライ可能フラグを初期化
             is_retryable = False
 
             try:
-                # API呼び出しの実行
+                # API呼び出しの実行: 応答設定を追加
                 response = self.client.models.generate_content(
                     model=self.model_name,
-                    contents=contents_object
+                    contents=contents_object,
+                    config=generation_config
                 )
 
-                # 応答が空でないかチェック (コンテンツフィルタリングやサイレント失敗の可能性に対応)
+                # 応答が空でないかチェック
                 if not response.text.strip():
                     ai_client_logger.warning("Gemini API returned empty content. It might be filtered or failed silently.")
-                    # 空のレビューとして返す
                     return ""
 
                 # 成功
