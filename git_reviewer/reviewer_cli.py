@@ -51,7 +51,7 @@ def common_options(f):
 
 def _get_default_local_path(command: str) -> str:
     """一時ディレクトリ内のデフォルトパスを生成"""
-    base_dir = Path(tempfile.gettempdir()) / "git-gemini-reviewer-fire-repos"
+    base_dir = Path(tempfile.gettempdir()) / "git-gemini-clicker-repos"
     local_repo_name = f"tmp-{command}"
     return str(base_dir / local_repo_name)
 
