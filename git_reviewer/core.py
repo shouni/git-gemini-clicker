@@ -1,13 +1,13 @@
 import logging
 import importlib.resources as pkg_resources
+import os
 from typing import Optional, Tuple
-from .git_client import GitClient, GitClientError, BranchNotFoundError # 同じパッケージのgit_clientをインポート
+from .git_client import GitClient, GitClientError, BranchNotFoundError
+from .ai_client import AIClient, AICallError
 
 # ロギング設定: ライブラリのデフォルトロガーを設定
-# アプリケーションがbasicConfigを呼び出さない限り、このロガーからのメッセージは出力されない
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-# logger.propagate = False # NullHandlerを設定する場合、通常は不要
 
 class ReviewCore:
     """
@@ -21,12 +21,15 @@ class ReviewCore:
                  model_name: str,
                  skip_host_key_check: bool = False):
 
-        self.logger = logging.getLogger(__name__) # インスタンス内でロガーを使用
+        self.logger = logging.getLogger(__name__)
 
         self.repo_url = repo_url
         self.local_path = local_path
         self.model_name = model_name
         self.skip_host_key_check = skip_host_key_check
+
+        # AIClientの初期化
+        self.ai_client = AIClient(model_name=self.model_name)
 
         # GitClientの初期化とリポジトリの準備を実行
         self.git_client = GitClient(
@@ -54,23 +57,10 @@ class ReviewCore:
             self.logger.info(f"Loaded prompt template: {prompt_filename}")
             return content
         except FileNotFoundError as e:
-            # FileNotFoundErrorはそのまま再送出
             raise FileNotFoundError(f"プロンプトファイル '{prompt_filename}' がパッケージリソース '{prompt_package}' 内に見つかりません。") from e
         except Exception as e:
             self.logger.error(f"プロンプトファイルの読み込み中に予期せぬエラー: {e}")
             raise
-
-
-    # ----------------------------------------------
-    # 2. Gemini API の呼び出し (TODO: 次のステップで実装)
-    # ----------------------------------------------
-    def _call_gemini_api(self, prompt_content: str) -> str:
-        """
-        Gemini APIを呼び出すダミー関数。
-        """
-        # --- [TODO: google-genai SDKの実装] ---
-        # ダミー結果を返す
-        return f"[[PLACEHOLDER: AI Review Result for model {self.model_name}]]\n\n--- Prompt Snippet ---\n{prompt_content[:200]}..."
 
 
     # ----------------------------------------------
@@ -79,10 +69,12 @@ class ReviewCore:
     def run_review(self, base_branch: str, feature_branch: str, mode: str) -> Tuple[bool, str]:
         """
         AIレビューの全工程（差分取得、プロンプト適用、API呼び出し）を実行します。
+
+        Note: _call_gemini_api メソッドは削除され、AIClientの呼び出しはここに統合されました。
         """
         self.logger.info(f"\n===== AI Review START: Mode={mode} =====")
         try:
-            # 1. 差分の取得 (GitClientに処理を委譲)
+            # 1. 差分の取得
             diff_content = self.git_client.get_diff(base_branch, feature_branch)
 
             if not diff_content.strip():
@@ -92,10 +84,13 @@ class ReviewCore:
             # 2. プロンプトテンプレートのロード
             prompt_template = self._load_prompt_template(mode)
 
-            # 3. テンプレート処理とAPI呼び出し
+            # 3. テンプレート処理とAPI呼び出し (統合されたロジック)
             final_prompt_content = prompt_template.replace("[CODE_DIFF]", diff_content)
+            self.logger.info(f"Final prompt created (length: {len(final_prompt_content)} characters).") # ロギングを追加
 
-            review_result = self._call_gemini_api(final_prompt_content)
+            # 💡 直接 AIClient のメソッドを呼び出す
+            review_result = self.ai_client.generate_review(final_prompt_content)
+            self.logger.info("AI review generated successfully.")
 
             return True, review_result
 
@@ -104,10 +99,13 @@ class ReviewCore:
             return False, f"Error: 指定されたブランチが存在しません。{e}"
         except GitClientError as e:
             self.logger.error(f"Git操作エラーが発生しました。詳細ログを確認してください。")
-            return False, f"Error: Git操作中に問題が発生しました。"
+            return False, f"Error: Git操作中に問題が発生しました。詳細ログを確認してください。"
         except FileNotFoundError as e:
             self.logger.error(f"プロンプトファイルが見つかりません。{e}")
             return False, f"Error: プロンプトファイルが見つかりません。{e}"
+        except AICallError as e:
+            self.logger.error(f"Gemini API呼び出しエラー: {e}")
+            return False, f"Error: Gemini APIの呼び出し中に致命的なエラーが発生しました。{e}"
         except Exception as e:
             self.logger.error(f"予期せぬエラーが発生しました: {type(e).__name__}: {e}", exc_info=True)
             return False, f"Error: 予期せぬエラーが発生しました。{type(e).__name__}: {e}"
