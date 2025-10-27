@@ -58,12 +58,15 @@ class GitClient:
     def _setup_ssh_command(self):
         """Go版の getGitSSHCommand に相当: GIT_SSH_COMMAND 環境変数を設定する。"""
         ssh_key_path = os.path.expanduser(self.ssh_key_path)
+        # 1. 絶対パスに変換し、スラッシュ区切りに統一
+        clean_path = Path(os.path.abspath(ssh_key_path)).as_posix()
 
-        if not Path(ssh_key_path).is_file():
-            self.logger.warning(f"Warning: SSHキーファイルが見つかりません: {ssh_key_path}. SSH認証は機能しない可能性があります。")
+        if not Path(clean_path).is_file():
+            self.logger.error(f"FATAL: SSHキーファイルが見つかりません: {clean_path}")
             return
 
-        ssh_command = f'ssh -i {ssh_key_path}'
+        # 2. コマンドを作成し、二重引用符で囲む
+        ssh_command = f'ssh -i "{clean_path}"'
 
         if self.skip_host_key_check:
             ssh_command += " -o StrictHostKeyChecking=no"
