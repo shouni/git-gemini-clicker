@@ -25,12 +25,12 @@ def get_ssh_key_default():
 @click.group()
 @click.option(
     '-m', '--model',
-    default=get_model_default(), # 修正: Settingsからデフォルト値を取得
+    default=get_model_default(),
     help='使用するGeminiモデル名。'
 )
 @click.option(
     '-k', '--ssh-key-path',
-    default=get_ssh_key_default(), # 修正: Settingsからデフォルト値を取得
+    default=get_ssh_key_default(),
     help='SSHプライベートキーへのパス。'
 )
 @click.option('-s', '--skip-host-key-check', is_flag=True, help='SSHホストキーのチェックをスキップします。')
@@ -112,18 +112,14 @@ def _execute_review(ctx: dict, repo_url: str, local_path: str, base_branch: str,
 
     core = ReviewCore(
         repo_url=repo_url,
-        # 修正: local_path は CLI から取得した値だが、Core/GitClient の引数名に合わせて repo_path を使用
-        repo_path=local_path, # 👈 ここを local_path から repo_path に変更 (値は local_path のものを使用)
+        repo_path=local_path,
         ssh_key_path=ctx['SSH_KEY_PATH'],
         model_name=ctx['MODEL'],
         skip_host_key_check=ctx['SKIP_HOST_KEY_CHECK'],
-
-        # 堅牢性設定をCoreに渡す
         max_retries=max_retries,
         initial_delay_seconds=initial_delay
     )
 
-    # temperatureとmax_tokensをrun_reviewに渡す
     return core.run_review(
         base_branch=base_branch,
         feature_branch=feature_branch,
@@ -177,8 +173,8 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
             base_branch=base_branch,
             feature_branch=feature_branch,
             mode=mode,
-            temperature=temperature, # 実行関数へ渡す
-            max_tokens=max_tokens    # 実行関数へ渡す
+            temperature=temperature,
+            max_tokens=max_tokens
         )
 
         # 結果の出力と終了処理
@@ -191,7 +187,7 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
 
 # --- DETAIL コマンド ---
 @cli.command()
-@common_options # 👈 共通オプションを適用
+@common_options
 @click.pass_context
 def detail(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
@@ -203,7 +199,7 @@ def detail(ctx, git_clone_url, feature_branch, base_branch, local_path, temperat
 
 # --- RELEASE コマンド ---
 @cli.command()
-@common_options # 👈 共通オプションを適用
+@common_options
 @click.pass_context
 def release(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
