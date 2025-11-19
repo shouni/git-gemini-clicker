@@ -14,7 +14,7 @@
 > **Go言語版との違いについて**
 >
 > このプロジェクトは **Python製のCLIツール** です。
-> 高速な動作とシングルバイナリによる配布を重視する「実務利用」の場合は、Go言語版の **[gemini-reviewer-cli](https://github.com/shouni/gemini-reviewer-cli)** を推奨します。
+> 高速な動作とシングルバイナリによる配布を重視する「実務利用」の場合は、Go言語版の **[gemini-reviewer-cli](https://github.com/shouni/git-gemini-reviewer-go)** を推奨します。
 >
 > **本ツール (`ggrc`) は、以下のようなケースに最適です。**
 >
