@@ -217,8 +217,8 @@ class GitClient:
     def cleanup(self, base_branch: str = "main", remote: str = "origin"):
         """
         レビュー処理後にローカルリポジトリをベースブランチの最新状態にクリーンアップします。
-        具体的には、リモートの最新情報をフェッチし、指定されたベースブランチにチェックアウト後、
-        リモートの最新状態にハードリセットし、追跡されていないファイルやディレクトリを削除します。
+        具体的には、リモートの最新情報をフェッチし、指定されたベースブランチに強制チェックアウト後、
+        ローカルブランチをリモートの最新状態に合わせ、追跡されていないファイルやディレクトリを削除します。
         """
         self.logger.info(f"Cleanup: Fetching, checking out '{base_branch}', and resetting hard...")
 
@@ -226,18 +226,17 @@ class GitClient:
             # 1. リモートの最新情報を取得し、リモート追跡ブランチを更新
             self._run_git_command(['fetch', remote])
 
-            # 2. ベースブランチにチェックアウト
-            #    ローカルにブランチが存在しない場合は作成・追跡設定を行う
-            self._run_git_command(['checkout', base_branch])
-
-            # 3. 強制リセット: ローカルの作業ディレクトリをリモートの最新状態に完全に合わせる
-            #    fetch 後なので、base_ref は最新のリモート状態を指す
+            # 2. ベースブランチの強制チェックアウトとリセット
+            #    '-B'オプションは、ブランチが存在しない場合は作成し、存在する場合はリモートの最新状態に強制リセットします。
             base_ref = f'{remote}/{base_branch}'
-            self._run_git_command(['reset', '--hard', base_ref])
+            self._run_git_command(['checkout', '-B', base_branch, base_ref])
 
-            # 4. 追跡されていないファイルも完全に削除
+            # 3. 追跡されていないファイルも完全に削除
             #    ビルド生成物や一時ファイルなども消去し、真にクリーンな状態に
             self._run_git_command(['clean', '-f', '-d'])
+
+            # 4. 強制リセットはcheckout -Bで行われたため、以前のreset --hardのステップは不要です。
+            # 5. pull コマンドは不要なため削除 (fetch + reset --hard で完了)
 
             self.logger.info(f"Cleanup successful: Base branch '{base_branch}' is now clean and up-to-date (via fetch + reset).")
 
