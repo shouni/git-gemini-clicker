@@ -105,7 +105,7 @@ def _get_default_local_path(command: str) -> str:
     return str(base_dir / local_repo_name)
 
 
-# --- 修正された _print_info 関数 ---
+# --- 修正された _print_info 関数 (行番号 70) ---
 def _print_info(params: ReviewParams, model_name: str, ssh_key_path: str) -> None:
     """
     CLIの実行情報を出力します。
@@ -114,7 +114,13 @@ def _print_info(params: ReviewParams, model_name: str, ssh_key_path: str) -> Non
     logger.info(f"リポジトリURL: {params.repo_url}")
     logger.info(f"フィーチャーブランチ: {params.feature_branch}")
     logger.info(f"ベースブランチ: {params.base_branch}")
-    logger.info(f"ローカルパス: {params.local_path}")
+
+    # local_path がデフォルト値の場合にその旨を追記
+    if params.local_path and "git-gemini-clicker-repos" in params.local_path:
+        logger.info(f"ローカルパス: {params.local_path} (一時ディレクトリに自動生成)")
+    else:
+        logger.info(f"ローカルパス: {params.local_path}")
+
     logger.info(f"使用モデル: {model_name}")
     logger.info(f"SSHキーパス: {ssh_key_path}")
     logger.info(f"Temperature: {params.temperature}")
