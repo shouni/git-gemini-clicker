@@ -217,13 +217,13 @@ class GitClient:
     def cleanup(self, base_branch: str = "main", remote: str = "origin"):
         """
         レビュー処理後にローカルリポジトリをベースブランチの最新状態にクリーンアップします。
-        （fetch -> checkout -> hard reset -> clean -f -d）
-        Go版の Cleanup の責務（次の操作に影響を与えない状態に戻す）を実装します。
+        具体的には、リモートの最新情報をフェッチし、指定されたベースブランチにチェックアウト後、
+        リモートの最新状態にハードリセットし、追跡されていないファイルやディレクトリを削除します。
         """
         self.logger.info(f"Cleanup: Fetching, checking out '{base_branch}', and resetting hard...")
 
         try:
-            # 1. 【修正適用】リモートの最新情報を取得し、リモート追跡ブランチを更新 (219行目付近)
+            # 1. リモートの最新情報を取得し、リモート追跡ブランチを更新
             self._run_git_command(['fetch', remote])
 
             # 2. ベースブランチにチェックアウト
@@ -238,9 +238,6 @@ class GitClient:
             # 4. 追跡されていないファイルも完全に削除
             #    ビルド生成物や一時ファイルなども消去し、真にクリーンな状態に
             self._run_git_command(['clean', '-f', '-d'])
-
-            # 5. 【修正適用】pull コマンドは不要なため削除 (228行目付近)
-            # self._run_git_command(['pull', remote, base_branch]) # 削除
 
             self.logger.info(f"Cleanup successful: Base branch '{base_branch}' is now clean and up-to-date (via fetch + reset).")
 
