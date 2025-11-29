@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Tuple
 import logging
+from dataclasses import dataclass
 
 from ..settings import Settings
 from ..core import ReviewCore
@@ -13,8 +14,20 @@ from ..core import ReviewCore
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- データクラス定義 ---
+@dataclass
+class ReviewParams:
+    """レビュー実行に必要なパラメータを格納するデータクラス"""
+    feature_branch: str
+    repo_url: str
+    base_branch: str
+    local_path: Optional[str]
+    mode: str
+    temperature: float
+    max_tokens: int
+
+
 # --- グローバルオプション定義 ---
-# 設定ファイルからデフォルト値を取得するためのラッパー関数
 def get_model_default():
     return Settings.get("DEFAULT_GEMINI_MODEL") or "gemini-2.5-flash"
 
@@ -54,13 +67,12 @@ def cli(ctx, model, ssh_key_path, skip_host_key_check):
 # --- 共通オプションデコレータ ---
 def common_options(f):
     """detailとreleaseコマンドで共通のオプションを定義するデコレータ"""
-    # git-clone-url (必須なので変更なし)
-    f = click.option('-u', '--git-clone-url', required=True, type=str, help='リポジトリのクローンURL。')(f)
+    # repo-url
+    f = click.option('-u', '--repo-url', required=True, type=str, help='リポジトリのクローンURL。')(f)
     # feature-branch (必須なので変更なし)
     f = click.option('-f', '--feature-branch', required=True, type=str, help='レビュー対象のフィーチャーブランチ名。')(f)
 
     # base-branch
-    # Settings.get("BASE_BRANCH")がconfig.pyにない場合、"main"がフォールバック
     base_branch_default = Settings.get("BASE_BRANCH") or "main"
     f = click.option('-b', '--base-branch', default=base_branch_default, help='比較対象のベースブランチ。')(f)
 
@@ -93,12 +105,27 @@ def _get_default_local_path(command: str) -> str:
     return str(base_dir / local_repo_name)
 
 
-def _print_info(command: str, **kwargs):
-    """引数情報を表示するダミー関数 (デバッグ用)"""
-    logger.info(f"\n--- {command.upper()} モード引数確認 (DEBUG) ---")
-    for key, value in kwargs.items():
-        logger.info(f"{key}: {value}")
-    logger.info("------------------------------------------")
+# --- 修正された _print_info 関数 (行番号 70) ---
+def _print_info(params: ReviewParams, model_name: str, ssh_key_path: str) -> None:
+    """
+    CLIの実行情報を出力します。
+    """
+    logger.info(f"\n--- {params.mode.upper()} レビュー開始 ---")
+    logger.info(f"リポジトリURL: {params.repo_url}")
+    logger.info(f"フィーチャーブランチ: {params.feature_branch}")
+    logger.info(f"ベースブランチ: {params.base_branch}")
+
+    # local_path がデフォルト値の場合にその旨を追記
+    if params.local_path and "git-gemini-clicker-repos" in params.local_path:
+        logger.info(f"ローカルパス: {params.local_path} (一時ディレクトリに自動生成)")
+    else:
+        logger.info(f"ローカルパス: {params.local_path}")
+
+    logger.info(f"使用モデル: {model_name}")
+    logger.info(f"SSHキーパス: {ssh_key_path}")
+    logger.info(f"Temperature: {params.temperature}")
+    logger.info(f"Max Tokens: {params.max_tokens}")
+    logger.info("----------------------")
 
 
 def _execute_review(ctx: dict, repo_url: str, local_path: str, base_branch: str, feature_branch: str, mode: str, temperature: float, max_tokens: int) -> Tuple[bool, str]:
@@ -143,38 +170,32 @@ def _handle_review_result(success: bool, result_message: str):
         sys.exit(1)
 
 
-def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
-                        base_branch: str, local_path: Optional[str], mode: str, temperature: float, max_tokens: int) -> None:
+def _run_review_command(ctx: dict, params: ReviewParams) -> None:
     """
     Gitレビューのメインフローを調整するメソッド。（責務はフロー管理に集中）
     """
-    if local_path is None:
-        local_path = _get_default_local_path(mode)
+    if params.local_path is None:
+        # local_path のデフォルト設定を params.local_path に反映
+        params.local_path = _get_default_local_path(params.mode)
 
     # ctx は辞書なので、直接キーでアクセス
     _print_info(
-        mode,
-        feature_branch=feature_branch,
-        git_clone_url=git_clone_url,
-        base_branch=base_branch,
-        local_path=local_path,
+        params=params,
         model_name=ctx['MODEL'],
         ssh_key_path=ctx['SSH_KEY_PATH'],
-        temperature=temperature,
-        max_tokens=max_tokens
     )
 
     try:
         # レビューを実行
         success, result_message = _execute_review(
             ctx=ctx,
-            repo_url=git_clone_url,
-            local_path=local_path,
-            base_branch=base_branch,
-            feature_branch=feature_branch,
-            mode=mode,
-            temperature=temperature,
-            max_tokens=max_tokens
+            repo_url=params.repo_url,
+            local_path=params.local_path,
+            base_branch=params.base_branch,
+            feature_branch=params.feature_branch,
+            mode=params.mode,
+            temperature=params.temperature,
+            max_tokens=params.max_tokens
         )
 
         # 結果の出力と終了処理
@@ -189,24 +210,42 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
 @cli.command()
 @common_options
 @click.pass_context
-def detail(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
+def detail(ctx, repo_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
     [詳細レビュー] リポジトリURLとフィーチャーブランチを指定し、コード品質に焦点を当てたAIレビューを実行します。
     """
-    # 新しく追加したLLMパラメータを _run_review_command に渡す
-    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "detail", temperature, max_tokens)
+    # ReviewParams をインスタンス化して引数をカプセル化
+    params = ReviewParams(
+        feature_branch=feature_branch,
+        repo_url=repo_url,
+        base_branch=base_branch,
+        local_path=local_path,
+        mode="detail",
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+    _run_review_command(ctx.obj, params)
 
 
 # --- RELEASE コマンド ---
 @cli.command()
 @common_options
 @click.pass_context
-def release(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
+def release(ctx, repo_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
     [リリースレビュー] リポジトリURLとフィーチャーブランチを指定し、本番リリース可否に焦点を当てたAIレビューを実行します。
     """
-    # 新しく追加したLLMパラメータを _run_review_command に渡す
-    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "release", temperature, max_tokens)
+    # ReviewParams をインスタンス化して引数をカプセル化
+    params = ReviewParams(
+        feature_branch=feature_branch,
+        repo_url=repo_url,
+        base_branch=base_branch,
+        local_path=local_path,
+        mode="release",
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+    _run_review_command(ctx.obj, params)
 
 
 if __name__ == '__main__':
