@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Tuple
 import logging
-# --- 追加 ---
 from dataclasses import dataclass
 
 from ..settings import Settings
@@ -106,12 +105,21 @@ def _get_default_local_path(command: str) -> str:
     return str(base_dir / local_repo_name)
 
 
-def _print_info(command: str, **kwargs):
-    """引数情報を表示するダミー関数 (デバッグ用)"""
-    logger.info(f"\n--- {command.upper()} モード引数確認 (DEBUG) ---")
-    for key, value in kwargs.items():
-        logger.info(f"{key}: {value}")
-    logger.info("------------------------------------------")
+# --- 修正された _print_info 関数 ---
+def _print_info(params: ReviewParams, model_name: str, ssh_key_path: str) -> None:
+    """
+    CLIの実行情報を出力します。
+    """
+    logger.info(f"\n--- {params.mode.upper()} レビュー開始 ---")
+    logger.info(f"リポジトリURL: {params.repo_url}")
+    logger.info(f"フィーチャーブランチ: {params.feature_branch}")
+    logger.info(f"ベースブランチ: {params.base_branch}")
+    logger.info(f"ローカルパス: {params.local_path}")
+    logger.info(f"使用モデル: {model_name}")
+    logger.info(f"SSHキーパス: {ssh_key_path}")
+    logger.info(f"Temperature: {params.temperature}")
+    logger.info(f"Max Tokens: {params.max_tokens}")
+    logger.info("----------------------")
 
 
 def _execute_review(ctx: dict, repo_url: str, local_path: str, base_branch: str, feature_branch: str, mode: str, temperature: float, max_tokens: int) -> Tuple[bool, str]:
@@ -156,7 +164,6 @@ def _handle_review_result(success: bool, result_message: str):
         sys.exit(1)
 
 
-# 引数をデータクラスで受け取るように変更 (行番号 146)
 def _run_review_command(ctx: dict, params: ReviewParams) -> None:
     """
     Gitレビューのメインフローを調整するメソッド。（責務はフロー管理に集中）
@@ -167,15 +174,9 @@ def _run_review_command(ctx: dict, params: ReviewParams) -> None:
 
     # ctx は辞書なので、直接キーでアクセス
     _print_info(
-        params.mode,
-        feature_branch=params.feature_branch,
-        repo_url=params.repo_url,
-        base_branch=params.base_branch,
-        local_path=params.local_path,
+        params=params,
         model_name=ctx['MODEL'],
         ssh_key_path=ctx['SSH_KEY_PATH'],
-        temperature=params.temperature,
-        max_tokens=params.max_tokens
     )
 
     try:
