@@ -54,8 +54,8 @@ def cli(ctx, model, ssh_key_path, skip_host_key_check):
 # --- 共通オプションデコレータ ---
 def common_options(f):
     """detailとreleaseコマンドで共通のオプションを定義するデコレータ"""
-    # git-clone-url (必須なので変更なし)
-    f = click.option('-u', '--git-clone-url', required=True, type=str, help='リポジトリのクローンURL。')(f)
+    # repo-url (必須なので変更なし)
+    f = click.option('-u', '--repo-url', required=True, type=str, help='リポジトリのクローンURL。')(f)
     # feature-branch (必須なので変更なし)
     f = click.option('-f', '--feature-branch', required=True, type=str, help='レビュー対象のフィーチャーブランチ名。')(f)
 
@@ -143,7 +143,7 @@ def _handle_review_result(success: bool, result_message: str):
         sys.exit(1)
 
 
-def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
+def _run_review_command(ctx: dict, feature_branch: str, repo_url: str,
                         base_branch: str, local_path: Optional[str], mode: str, temperature: float, max_tokens: int) -> None:
     """
     Gitレビューのメインフローを調整するメソッド。（責務はフロー管理に集中）
@@ -155,7 +155,7 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
     _print_info(
         mode,
         feature_branch=feature_branch,
-        git_clone_url=git_clone_url,
+        repo_url=repo_url,
         base_branch=base_branch,
         local_path=local_path,
         model_name=ctx['MODEL'],
@@ -168,7 +168,7 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
         # レビューを実行
         success, result_message = _execute_review(
             ctx=ctx,
-            repo_url=git_clone_url,
+            repo_url=repo_url,
             local_path=local_path,
             base_branch=base_branch,
             feature_branch=feature_branch,
@@ -189,24 +189,24 @@ def _run_review_command(ctx: dict, feature_branch: str, git_clone_url: str,
 @cli.command()
 @common_options
 @click.pass_context
-def detail(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
+def detail(ctx, repo_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
     [詳細レビュー] リポジトリURLとフィーチャーブランチを指定し、コード品質に焦点を当てたAIレビューを実行します。
     """
     # 新しく追加したLLMパラメータを _run_review_command に渡す
-    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "detail", temperature, max_tokens)
+    _run_review_command(ctx.obj, feature_branch, repo_url, base_branch, local_path, "detail", temperature, max_tokens)
 
 
 # --- RELEASE コマンド ---
 @cli.command()
 @common_options
 @click.pass_context
-def release(ctx, git_clone_url, feature_branch, base_branch, local_path, temperature, max_tokens):
+def release(ctx, repo_url, feature_branch, base_branch, local_path, temperature, max_tokens):
     """
     [リリースレビュー] リポジトリURLとフィーチャーブランチを指定し、本番リリース可否に焦点を当てたAIレビューを実行します。
     """
     # 新しく追加したLLMパラメータを _run_review_command に渡す
-    _run_review_command(ctx.obj, feature_branch, git_clone_url, base_branch, local_path, "release", temperature, max_tokens)
+    _run_review_command(ctx.obj, feature_branch, repo_url, base_branch, local_path, "release", temperature, max_tokens)
 
 
 if __name__ == '__main__':
