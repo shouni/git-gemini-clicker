@@ -113,6 +113,7 @@ class GitClient:
         except FileNotFoundError:
             raise GitCommandError("'git' コマンドが見つかりません。")
         except Exception as e:
+            # FileNotFoundError以外の予期せぬシステムエラーをGitCommandErrorとしてラップ
             raise GitCommandError(f"予期せぬ Git コマンド実行エラー: {e}")
 
 
@@ -240,6 +241,11 @@ class GitClient:
 
             self.logger.info(f"Cleanup successful: Base branch '{base_branch}' is now clean and up-to-date (via fetch + reset).")
 
+        except GitCommandError as e:
+            # Gitコマンド実行中のエラー（例：リモートが存在しない、認証失敗など）
+            # GitCommandError は stderr を持つため、より詳細な情報を提供できる
+            self.logger.error(f"Failed to perform Git cleanup due to a Git command error: {e.stderr.strip()}")
+
         except Exception as e:
-            # クリーンアップの失敗は、レビューの成功を妨げないが、ログに警告として残す
-            self.logger.error(f"Failed to perform Git cleanup (fetch/reset sequence): {e}")
+            # その他の予期せぬエラー（ファイルシステムの操作、ロギングエラーなど）
+            self.logger.error(f"An unexpected error occurred during Git cleanup: {e}")
