@@ -100,7 +100,7 @@ class GitClient:
                 text=True,
                 check=False,
                 encoding='utf-8',
-                env=self._git_env  # ★ 改善点: 固有の環境変数を使用
+                env=self._git_env
             )
 
             if result.returncode != 0 and check and not ignore_errors:
@@ -113,6 +113,7 @@ class GitClient:
         except FileNotFoundError:
             raise GitCommandError("'git' コマンドが見つかりません。")
         except Exception as e:
+            # FileNotFoundError以外の予期せぬシステムエラーをGitCommandErrorとしてラップ
             raise GitCommandError(f"予期せぬ Git コマンド実行エラー: {e}")
 
 
@@ -212,3 +213,39 @@ class GitClient:
 
         self.logger.info(f"--- ✅ 差分取得完了 ({len(result.stdout)} bytes) ---")
         return result.stdout
+
+
+    def cleanup(self, base_branch: str = "main", remote: str = "origin"):
+        """
+        レビュー処理後にローカルリポジトリをベースブランチの最新状態にクリーンアップします。
+        具体的には、リモートの最新情報をフェッチし、指定されたベースブランチに強制チェックアウト後、
+        ローカルブランチをリモートの最新状態に合わせ、追跡されていないファイルやディレクトリを削除します。
+        """
+        self.logger.info(f"Cleanup: Fetching, checking out '{base_branch}', and resetting hard...")
+
+        try:
+            # 1. リモートの最新情報を取得し、リモート追跡ブランチを更新
+            self._run_git_command(['fetch', remote])
+
+            # 2. ベースブランチの強制チェックアウトとリセット
+            #    '-B'オプションは、ブランチが存在しない場合は作成し、存在する場合はリモートの最新状態に強制リセットします。
+            base_ref = f'{remote}/{base_branch}'
+            self._run_git_command(['checkout', '-B', base_branch, base_ref])
+
+            # 3. 追跡されていないファイルも完全に削除
+            #    ビルド生成物や一時ファイルなども消去し、真にクリーンな状態に
+            self._run_git_command(['clean', '-f', '-d'])
+
+            # 4. 強制リセットはcheckout -Bで行われたため、以前のreset --hardのステップは不要です。
+            # 5. pull コマンドは不要なため削除 (fetch + reset --hard で完了)
+
+            self.logger.info(f"Cleanup successful: Base branch '{base_branch}' is now clean and up-to-date (via fetch + reset).")
+
+        except GitCommandError as e:
+            # Gitコマンド実行中のエラー（例：リモートが存在しない、認証失敗など）
+            # GitCommandError は stderr を持つため、より詳細な情報を提供できる
+            self.logger.error(f"Failed to perform Git cleanup due to a Git command error: {e.stderr.strip()}")
+
+        except Exception as e:
+            # その他の予期せぬエラー（ファイルシステムの操作、ロギングエラーなど）
+            self.logger.error(f"An unexpected error occurred during Git cleanup: {e}")
