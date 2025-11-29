@@ -212,3 +212,37 @@ class GitClient:
 
         self.logger.info(f"--- ✅ 差分取得完了 ({len(result.stdout)} bytes) ---")
         return result.stdout
+
+
+    def cleanup(self, base_branch: str = "main", remote: str = "origin"):
+        """
+        レビュー処理後にローカルリポジトリをベースブランチの最新状態にクリーンアップします。
+        （checkout -> hard reset -> clean -f -d -> pull）
+        Go版の Cleanup の責務（次の操作に影響を与えない状態に戻す）を実装します。
+        """
+        self.logger.info(f"Cleanup: Checking out '{base_branch}' and pulling latest changes...")
+
+        try:
+            # 1. ベースブランチにチェックアウト
+            #    ローカルにブランチが存在しない場合は作成・追跡設定を行う
+            self._run_git_command(['checkout', base_branch])
+
+            # 2. 強制リセット: ローカルの作業ディレクトリをリモートの最新状態に完全に合わせる
+            #    これにより、前のレビューで残った可能性のあるローカルの変更（例：マージによる中間状態）を破棄
+            base_ref = f'{remote}/{base_branch}'
+            self._run_git_command(['reset', '--hard', base_ref])
+
+            # 3. 追跡されていないファイルも完全に削除
+            #    ビルド生成物や一時ファイルなども消去し、真にクリーンな状態に
+            self._run_git_command(['clean', '-f', '-d'])
+
+            # 4. ベースブランチを pull (最新情報の確実な取得)
+            #    fetch のみで比較は可能だが、ローカルブランチを最新にしておくことで次の操作の安全性を確保
+            self._run_git_command(['pull', remote, base_branch])
+
+            self.logger.info(f"Cleanup successful: Base branch '{base_branch}' is now clean and up-to-date.")
+
+        except Exception as e:
+            # クリーンアップの失敗は、レビューの成功を妨げないが、ログに警告として残す
+            self.logger.error(f"Failed to perform Git cleanup (checkout/pull sequence): {e}")
+            # エラー発生時の状態を残すため、ここで終了コード1を返さない
