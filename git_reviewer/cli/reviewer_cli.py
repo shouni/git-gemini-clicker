@@ -83,7 +83,7 @@ def common_options(f):
     f = click.option(
         '--temperature',
         type=float,
-        default=float(Settings.get("DEFAULT_TEMPERATURE") or 0.2),
+        default=float(Settings.get("DEFAULT_TEMPERATURE") or 0.1),
         help='LLMの応答のランダム性 (0.0 - 1.0)。'
     )(f)
 
