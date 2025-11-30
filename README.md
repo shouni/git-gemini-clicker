@@ -14,7 +14,7 @@
 
 ## 🔗 Go言語版 CLIとの関係と機能比較
 
-このプロジェクトは、Go言語で開発された**実務向けCLI**である **[Git Gemini Reviewer Go](https://github.com/shouni/git-gemini-reviewer-go)** 及びそのコアライブラリ **[Gemini Reviewer Core](https://github.com/shouni/gemini-reviewer-core)**）の機能とコンセプトを参考にしつつ、**Pythonの特性（R\&D、LLMパラメータの柔軟な制御）** を活かしたCLIとして再実装されています。
+このプロジェクトは、Go言語で開発された**実務向けCLI**である **[Git Gemini Reviewer Go](https://github.com/shouni/git-gemini-reviewer-go)** 及びそのコアライブラリ **[Gemini Reviewer Core](https://github.com/shouni/gemini-reviewer-core)** の機能とコンセプトを参考にしつつ、**Pythonの特性（R\&D、LLMパラメータの柔軟な制御）** を活かしたCLIとして再実装されています。
 
 
 > 💡 **Go言語版との使い分けについて**
@@ -28,7 +28,7 @@
 | **言語 / 用途** | **Python / CLIツール** (プロトタイピング、R\&D) | **Go / CLIツール** (実務利用、CI/CD連携) |
 | **CLIフレームワーク** | **Click** (Python) | **Cobra** (Go) |
 | **Git操作** | **ローカル `git` コマンド** (subprocess)。作業ディレクトリを **`fetch` + `reset --hard`** でクリーンアップします。 | **`go-git`** (Goネイティブ)。一時ディレクトリの作成と削除でクリーンアップします。 |
-| **AI通信** | **`google-genai` SDK** (Python SDK) | Go SDK/HTTPクライアント（`gemini-reviewer-core`内部） |
+| **AI通信** | **`google-genai` SDK** (Python SDK) | google.golang.org/genai SDKを使用（gemini-reviewer-core内部） |
 | **カスタマイズ性** | LLMパラメータ (`--temperature`, `--max-tokens`) をCLIで詳細制御。**Pythonエコシステム**での拡張が容易。 | 依存性逆転（DIP）に基づく高い拡張性。LLMパラメータは**Core側で固定**（Temperature: 0.2） |
 | **出力/公開** | **標準出力 (`stdout`)** へのテキスト出力のみ。 | **多様な公開層**。`generic` (stdout)、`slack`、`backlog`、`publish` (GCS/S3 HTML保存) に対応。 |
 | **堅牢性** | 指数バックオフ付きのリトライ・遅延メカニズムを実装。 | Coreライブラリ内で `cenkalti/backoff` を移植し、AI通信や投稿処理に実装済み。 |
