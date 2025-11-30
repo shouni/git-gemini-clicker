@@ -69,21 +69,21 @@ def common_options(f):
     """detailとreleaseコマンドで共通のオプションを定義するデコレータ"""
     # repo-url
     f = click.option('-u', '--repo-url', required=True, type=str, help='リポジトリのクローンURL。')(f)
-    # feature-branch (必須なので変更なし)
+    # feature-branch
     f = click.option('-f', '--feature-branch', required=True, type=str, help='レビュー対象のフィーチャーブランチ名。')(f)
 
     # base-branch
     base_branch_default = Settings.get("BASE_BRANCH") or "main"
     f = click.option('-b', '--base-branch', default=base_branch_default, help='比較対象のベースブランチ。')(f)
 
-    # local-path (デフォルトはNoneなので変更なし)
-    f = click.option('--local-path', default=None, help='リポジトリをクローンするローカルパス。')(f)
+    # local-path
+    f = click.option('-l', '--local-path', default=None, help='リポジトリをクローンするローカルパス。')(f)
 
     # LLMパラメータ (temperature)
     f = click.option(
         '--temperature',
         type=float,
-        default=float(Settings.get("DEFAULT_TEMPERATURE") or 0.2),
+        default=float(Settings.get("DEFAULT_TEMPERATURE") or 0.1),
         help='LLMの応答のランダム性 (0.0 - 1.0)。'
     )(f)
 
@@ -105,7 +105,7 @@ def _get_default_local_path(command: str) -> str:
     return str(base_dir / local_repo_name)
 
 
-# --- 修正された _print_info 関数 (行番号 70) ---
+# --- 修正された _print_info 関数 ---
 def _print_info(params: ReviewParams, model_name: str, ssh_key_path: str) -> None:
     """
     CLIの実行情報を出力します。

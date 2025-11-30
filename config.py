@@ -17,7 +17,7 @@ DEFAULT_BASE_BRANCH: str = "main"
 DEFAULT_MODEL_NAME: str = "gemini-2.5-flash"
 
 # LLMの応答のランダム性 (0.0:決定論的 〜 1.0:創造的)
-DEFAULT_TEMPERATURE: float = 0.2
+DEFAULT_TEMPERATURE: float = 0.1
 
 # LLMの最大出力トークン数
 DEFAULT_MAX_TOKENS: int = 20480

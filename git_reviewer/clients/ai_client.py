@@ -100,7 +100,7 @@ class AIClient:
                     config=config_dict
                 )
 
-                # 修正: response.text にアクセスする前に None チェックを行う
+                # response.text にアクセスする前に None チェックを行う
                 if response.text is None or not response.text.strip():
                     filter_message = _check_safety_filtering(response)
 

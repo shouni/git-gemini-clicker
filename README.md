@@ -98,15 +98,17 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
 ### 🛠 主なオプション
 
-| オプション | ショートカット | 説明 | デフォルト値 |
-| :--- | :--- | :--- | :--- |
-| `--repo-url` | `-u` | **(必須)** レビュー対象の Git リポジトリの SSH URL | - |
-| `--feature-branch` | `-f` | **(必須)** レビュー対象のブランチ/コミット | - |
-| `--base-branch` | `-b` | 比較基準となるブランチ | `main` |
-| `--temperature` | | LLMの応答のランダム性 (0.0 - 1.0) | `0.2` |
-| `--max-tokens` | | LLMの最大出力トークン数 | `20480` |
-| `--model` | `-m` | 使用する Gemini モデル名 | `gemini-2.5-flash` |
-| `--ssh-key-path` | `-k` | SSH認証のための秘密鍵パス | `~/.ssh/id_rsa` |
+| フラグ | ショートカット | 説明 | デフォルト値 | 必須 |
+| :--- | :--- | :--- | :--- | :--- |
+| **`--repo-url`** | **`-u`** | レビュー対象の Git リポジトリの **SSH URL** | **なし** | ✅ |
+| **`--feature-branch`** | **`-f`** | レビュー対象のフィーチャーブランチ名/コミット | **なし** | ✅ |
+| **`--base-branch`** | **`-b`** | 比較基準となるブランチ | `main` | ❌ |
+| **`--local-path`** | **`-l`** | リポジトリをクローンするローカルパス。未指定の場合、一時ディレクトリに自動生成されます。 | `None` (未指定) | ❌ |
+| **`--temperature`** | **なし** | LLMの応答のランダム性 (0.0 - 1.0) | `0.1` | ❌ |
+| **`--max-tokens`** | **なし** | LLMの最大出力トークン数 | `4096` | ❌ |
+| **`--model`** | **`-m`** | 使用する Gemini モデル名 | `gemini-2.5-flash` | ❌ |
+| **`--ssh-key-path`** | **`-k`** | SSH認証のための秘密鍵パス | `~/.ssh/id_rsa` | ❌ |
+| **`--skip-host-key-check`** | **`-s`** | SSHホストキーのチェックをスキップする（フラグ）。 | `False` | ❌ |
 
 -----
 
@@ -120,8 +122,8 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 ggrc detail \
     -u "ssh://git@github.com/your/repo.git" \
     -f "feature/new-algorithm" \
-    --temperature 0.2 \
-    --max-tokens 8192
+    --temperature 0.5 \
+    --max-tokens 4096
 ```
 
 ### 2\. モデルを指定してリリース判定 (`release`)
