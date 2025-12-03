@@ -1,31 +1,25 @@
 [build-system]
-# PEP 517/518 に準拠したビルドシステムを定義
-# setuptools_scm を追加し、バージョンをGitから動的に取得
-requires = ["setuptools>=61.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=61.0.0", "wheel", "setuptools_scm[toml]>=7.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# プロジェクト名
 name = "git-gemini-clicker"
-# バージョンは setuptools_scm から動的に取得するため、'dynamic' を指定
 dynamic = ["version"]
 description = "AI-driven code review CLI utilizing Google Gemini and Git diffs."
 readme = "README.md"
 authors = [
     {name = "shouni"},
 ]
-license = {id = "MIT"}
+license = "MIT"
 requires-python = ">=3.9"
 keywords = ["git", "gemini", "ai", "review", "cli", "click", "python", "LLM", "AI-driven", "code-review", "diff-analysis"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Development Status :: 4 - Beta"
 ]
 
-# pip install でインストールされる実行時依存関係
 dependencies = [
     "click",
     "google-genai",
@@ -34,30 +28,18 @@ dependencies = [
 ]
 
 [project.scripts]
-# CLIツールのエントリポイントを定義
 ggc = "git_reviewer.cli.reviewer_cli:cli"
 
-# --- setuptools_scm による動的バージョン管理の設定 ---
-[tool.setuptools]
-# パッケージの自動検出または明示的なパッケージ名
-packages = ["git_reviewer"]
+[tool.setuptools_scm]
 
-[tool.setuptools.dynamic]
-# Gitタグに基づいてバージョンを決定する
-version = {git = true}
-
-# --- 開発用のツール設定 ---
 [tool.pytest]
-# pytest の設定
 testpaths = ["tests"]
 
 [tool.black]
-# Black (Python コードフォーマッタ) の設定
 line-length = 88
 target-version = ['py39']
 
 [tool.isort]
-# isort (import ソートツール) の設定
 profile = "black"
 multi_line_output = 3
 force_single_line = true
