@@ -45,7 +45,7 @@
 ```bash
 # 1. 仮想環境を作成・有効化
 python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
 # 2. 依存ライブラリをインストール
 # -e . : 編集可能モードでインストールし、CLIコマンド 'ggc' を有効化します
