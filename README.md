@@ -45,10 +45,10 @@
 ```bash
 # 1. 仮想環境を作成・有効化
 python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
 # 2. 依存ライブラリをインストール
-# -e . : 編集可能モードでインストールし、CLIコマンド 'ggrc' を有効化します
+# -e . : 編集可能モードでインストールし、CLIコマンド 'ggc' を有効化します
 pip install -e .
 ```
 
@@ -64,7 +64,7 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
 ## ⚙️ コマンドとオプション
 
-インストール後、**`ggrc`** コマンドで起動できます。
+インストール後、**`ggc`** コマンドで起動できます。
 
 ### 🤖 レビューコマンド
 
@@ -96,7 +96,7 @@ export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 プロンプトの挙動実験として、Temperature（創造性）を上げて実行する例です。
 
 ```bash
-ggrc detail \
+ggc detail \
     -u "ssh://git@github.com/your/repo.git" \
     -f "feature/new-algorithm" \
     --temperature 0.5 \
@@ -108,7 +108,7 @@ ggrc detail \
 より高性能なモデル (`gemini-2.5-pro`) を指定して、厳密なチェックを行う例です。
 
 ```bash
-ggrc release \
+ggc release \
     --model "gemini-2.5-pro" \
     -u "ssh://git@github.com/your/repo.git" \
     -f "release/v1.0.0" \
@@ -118,8 +118,8 @@ ggrc release \
 ### 3\. ヘルプの表示
 
 ```bash
-ggrc --help
-ggrc detail --help
+ggc --help
+ggc detail --help
 ```
 
 -----
